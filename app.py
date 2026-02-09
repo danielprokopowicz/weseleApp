@@ -185,7 +185,7 @@ with tab1:
     )
 
     # ZAPISYWANIE
-    if st.button("💾 Zapisz wszystkie zmiany (Goście)"):
+    if st.button("💾 Zapisz zmiany"):
         df_to_save = edytowane_goscie.copy()
         
         # Usuwanie pustych wierszy
@@ -210,7 +210,7 @@ with tab1:
         k1, k2, k3 = st.columns(3)
         k1.metric("Liczba gości", f"{len(df_goscie)}")
         k2.metric("Wysłane zaproszenia", f"{len(zaproszone)}")
-        k3.metric("Potwierdzone RSVP", f"{len(potwierdzone)}")
+        k3.metric("Potwierdzone Przybycia", f"{len(potwierdzone)}")
         
 # ==========================
 # ZAKŁADKA 2: ORGANIZACJA I BUDŻET
@@ -463,7 +463,7 @@ with tab3:
     )
 
     # ZAPISYWANIE
-    if st.button("💾 Zapisz zmiany (Zadania)"):
+    if st.button("💾 Zapisz zmiany "):
         df_to_save_todo = edytowane_zadania.copy()
         
         # Usuwamy puste
