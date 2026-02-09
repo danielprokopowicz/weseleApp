@@ -635,8 +635,8 @@ with tab4:
                     zapis_string = ";".join(nowa_lista_gosci)
                     
                     # Znajdujemy indeks wiersza w Google Sheets
-                    # df index + 2 (bo header to 1, a gspread liczy od 1)
-                    idx = df_stoly[df_stoly["Numer"] == wybrany_stol_id].index[0] + 2
+                    # POPRAWKA: Rzutowanie na int(), bo pandas zwraca numpy.int64
+                    idx = int(df_stoly[df_stoly["Numer"] == wybrany_stol_id].index[0] + 2)
                     
                     # Aktualizujemy komórkę D (Goscie_Lista to 4. kolumna)
                     worksheet_stoly.update_cell(idx, 4, zapis_string)
@@ -744,7 +744,8 @@ with tab4:
             st.write("---")
             if st.button("🗑️ Usuń ten stół"):
                 # Znajdź indeks i usuń
-                idx = df_stoly[df_stoly["Numer"] == wybrany_stol_id].index[0] + 2
+                # POPRAWKA: Rzutowanie na int(), bo pandas zwraca numpy.int64
+                idx = int(df_stoly[df_stoly["Numer"] == wybrany_stol_id].index[0] + 2)
                 worksheet_stoly.delete_rows(idx)
                 st.cache_data.clear()
                 st.warning("Usunięto stół!")
