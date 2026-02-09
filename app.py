@@ -243,6 +243,9 @@ with tab2:
     if df_obsluga.empty:
         df_obsluga = pd.DataFrame(columns=["Rola", "Informacje", "Koszt", "Czy_Oplacone", "Zaliczka", "Czy_Zaliczka_Oplacona"])
 
+    # ZABEZPIECZENIE: Usuwamy spacje z nazw kolumn (gdyby w Google Sheets było "Koszt " zamiast "Koszt")
+    df_obsluga.columns = df_obsluga.columns.str.strip()
+
     # --- 1. Formularz Dodawania ---
     with st.expander("➕ Dodaj nową usługę / koszt", expanded=False):
         c1, c2 = st.columns(2)
@@ -255,7 +258,7 @@ with tab2:
             st.number_input("Wymagana Zaliczka (0 jeśli brak)", min_value=0.0, step=100.0, key="org_zaliczka_kwota")
             st.checkbox("Czy zaliczka opłacona?", key="org_zaliczka_oplacona")
         
-        st.button("Dodaj do budżetu", on_click=dodaj_usluge)
+        st.button("Dodaj do budżetu", on_click=dodaj_usluge, key="btn_obsluga") # Dodany unikalny key dla przycisku
 
     # --- 2. Tabela Edycji ---
     st.write("---")
@@ -276,41 +279,42 @@ with tab2:
     df_org_display["Czy_Oplacone"] = df_org_display["Czy_Oplacone"].apply(napraw_booleana)
     df_org_display["Czy_Zaliczka_Oplacona"] = df_org_display["Czy_Zaliczka_Oplacona"].apply(napraw_booleana)
 
-    # --- SORTOWANIE (ZAKTUALIZOWANE) ---
+    # --- SORTOWANIE (POPRAWIONE) ---
+    # Definiujemy nazwy opcji w zmiennych, żeby uniknąć literówek
+    O_DOMYSLNE = "Domyślnie"
+    O_NAJDROZSZE = "💰 Najdroższe"
+    O_NIEOPLACONE = "❌ Nieopłacone (Całość)"
+    O_OPLACONE = "✅ Opłacone (Całość)"
+    O_BRAK_ZALICZKI = "❌ Brak Opłaconej Zaliczki"
+    O_ZALICZKA_OK = "✅ Zaliczka Opłacona"
+    O_AZ = "🔤 Rola (A-Z)"
+
     col_sort1, col_sort2 = st.columns([1, 3])
     with col_sort1:
         st.write("**Sortuj wg:**")
     with col_sort2:
         tryb_finanse = st.radio(
             "Sortowanie Finansów",
-            options=[
-                "Domyślnie", 
-                "💰 Najdroższe", 
-                "❌ Nieopłacone (Całość)", 
-                "✅ Opłacone (Całość)", 
-                "❌ Brak Opłaconej Zaliczki",         
-                "✅ Zaliczka Opłacona",    
-                "🔤 Rola (A-Z)"
-            ],
+            options=[O_DOMYSLNE, O_NAJDROZSZE, O_NIEOPLACONE, O_OPLACONE, O_BRAK_ZALICZKI, O_ZALICZKA_OK, O_AZ],
             label_visibility="collapsed",
             horizontal=True,
             key="sort_finanse"
         )
 
     # Logika sortowania
-    if tryb_finanse == "💰 Najdroższe":
+    if tryb_finanse == O_NAJDROZSZE:
         df_org_display = df_org_display.sort_values(by="Koszt", ascending=False)
-    elif tryb_finanse == "❌ Nieopłacone (Całość)":
+    elif tryb_finanse == O_NIEOPLACONE:
         df_org_display = df_org_display.sort_values(by="Czy_Oplacone", ascending=True)
-    elif tryb_finanse == "✅ Opłacone (Całość)":
+    elif tryb_finanse == O_OPLACONE:
         df_org_display = df_org_display.sort_values(by="Czy_Oplacone", ascending=False)
-    elif tryb_finanse == "❌ Brak Zaliczki":
-        # Sortujemy po kolumnie zaliczki rosnąco (False na górze)
+    elif tryb_finanse == O_BRAK_ZALICZKI:
+        # Puste okienka (False) idą na górę
         df_org_display = df_org_display.sort_values(by="Czy_Zaliczka_Oplacona", ascending=True)
-    elif tryb_finanse == "✅ Zaliczka Opłacona":
-        # Sortujemy po kolumnie zaliczki malejąco (True na górze)
+    elif tryb_finanse == O_ZALICZKA_OK:
+        # Zaznaczone okienka (True) idą na górę
         df_org_display = df_org_display.sort_values(by="Czy_Zaliczka_Oplacona", ascending=False)
-    elif tryb_finanse == "🔤 Rola (A-Z)":
+    elif tryb_finanse == O_AZ:
         df_org_display = df_org_display.sort_values(by="Rola", ascending=True)
 
     # EDYTOR
