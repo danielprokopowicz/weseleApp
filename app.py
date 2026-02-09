@@ -7,7 +7,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 from datetime import date
-
+import matplotlib.pyplot as plt
 
 # --- STAŁE ---
 LISTA_KATEGORII_BAZA = [
@@ -605,8 +605,6 @@ with tab2:
 
             with col_pie:
                 st.write("**Udział procentowy w torcie**")
-                # Wykres kołowy (Pie Chart) - używamy Matplotlib (standard w Pythonie)
-                import matplotlib.pyplot as plt
                 
                 # Konfiguracja wykresu kołowego
                 fig, ax = plt.subplots(figsize=(5, 5))
