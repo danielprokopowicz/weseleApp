@@ -53,6 +53,7 @@ except Exception as e:
     st.stop()
 
 # --- FUNKCJE POMOCNICZE ---
+@st.cache_data(ttl=600)
 def pobierz_dane(_worksheet):
     dane = _worksheet.get_all_records()
     return pd.DataFrame(dane)
