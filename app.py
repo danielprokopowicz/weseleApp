@@ -69,14 +69,12 @@ with tab1:
         imie_partnera = st.session_state.get("input_partner", "")
         czy_rsvp = st.session_state.get("check_rsvp", False)
         czy_z_osoba = st.session_state.get("check_plusone", False)
-        # NOWE POLE:
         czy_zaproszenie = st.session_state.get("check_invite", False)
 
         if imie_glowne:
             rsvp_text = "Tak" if czy_rsvp else "Nie"
-            invite_text = "Tak" if czy_zaproszenie else "Nie" # Tekst dla arkusza
+            invite_text = "Tak" if czy_zaproszenie else "Nie"
             
-            # Dodajemy 4 wartości: Imię, Osoba Tow, RSVP, Zaproszenie
             zapisz_nowy_wiersz(worksheet_goscie, [imie_glowne, "", rsvp_text, invite_text])
             
             if czy_z_osoba and imie_partnera:
@@ -84,12 +82,11 @@ with tab1:
             
             st.toast(f"✅ Dodano: {imie_glowne}")
             
-            # Reset pól
             st.session_state["input_imie"] = ""
             st.session_state["input_partner"] = ""
             st.session_state["check_rsvp"] = False
             st.session_state["check_plusone"] = False
-            st.session_state["check_invite"] = False # Resetujemy też nowe pole
+            st.session_state["check_invite"] = False
         else:
             st.warning("Musisz wpisać imię głównego gościa!")
 
@@ -100,11 +97,9 @@ with tab1:
         st.error(f"Błąd w zakładce GOŚCIE: {e}. Sprawdź czy dodałeś kolumnę 'Zaproszenie_Wyslane' w D1.")
         st.stop()
     
-    # Jeśli arkusz jest pusty lub nowy, tworzymy strukturę
     if df_goscie.empty:
         df_goscie = pd.DataFrame(columns=["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP", "Zaproszenie_Wyslane"])
 
-    # Zabezpieczenie na wypadek gdybyś dodał kolumnę w Excelu, ale Pandas jej nie widział (np. brak danych)
     if "Zaproszenie_Wyslane" not in df_goscie.columns:
         df_goscie["Zaproszenie_Wyslane"] = "Nie"
 
@@ -119,7 +114,6 @@ with tab1:
             if czy_z_osoba:
                 st.text_input("Imię Osoby Towarzyszącej", key="input_partner")
         
-        # Checkboxy w dwóch kolumnach dla estetyki
         k1, k2 = st.columns(2)
         with k1:
             st.checkbox("✉️ Zaproszenie wysłane?", key="check_invite")
@@ -135,11 +129,9 @@ with tab1:
     # --- PRZYGOTOWANIE DANYCH ---
     df_display = df_goscie.copy()
     
-    # Konwersja tekstów
     df_display["Imie_Nazwisko"] = df_display["Imie_Nazwisko"].astype(str).replace("nan", "")
     df_display["Imie_Osoby_Tow"] = df_display["Imie_Osoby_Tow"].astype(str).replace("nan", "")
 
-    # Funkcja pomocnicza Tak/Nie -> True/False
     def parsuj_bool(wartosc):
         return str(wartosc).lower() in ["tak", "true", "1", "yes"]
     
@@ -159,7 +151,6 @@ with tab1:
             key="sort_goscie_radio"
         )
 
-    # Logika sortowania
     if tryb_sortowania == "✉️ Wysłane zaproszenia":
         df_display = df_display.sort_values(by="Zaproszenie_Wyslane", ascending=False)
     elif tryb_sortowania == "✉️ Brak zaproszenia":
@@ -184,18 +175,15 @@ with tab1:
         key="editor_goscie"
     )
 
-    # ZAPISYWANIE
-    if st.button("💾 Zapisz zmiany"):
+    # ZAPISYWANIE - TUTAJ BYŁ BŁĄD, DODAŁEM KEY="save_goscie"
+    if st.button("💾 Zapisz zmiany", key="save_goscie"):
         df_to_save = edytowane_goscie.copy()
         
-        # Usuwanie pustych wierszy
         df_to_save = df_to_save[df_to_save["Imie_Nazwisko"].str.strip() != ""]
         
-        # Konwersja True/False -> Tak/Nie
         df_to_save["RSVP"] = df_to_save["RSVP"].apply(lambda x: "Tak" if x else "Nie")
         df_to_save["Zaproszenie_Wyslane"] = df_to_save["Zaproszenie_Wyslane"].apply(lambda x: "Tak" if x else "Nie")
         
-        # Zastępowanie braków danych
         df_to_save = df_to_save.fillna("")
         
         aktualizuj_caly_arkusz(worksheet_goscie, df_to_save)
@@ -211,14 +199,13 @@ with tab1:
         k1.metric("Liczba gości", f"{len(df_goscie)}")
         k2.metric("Wysłane zaproszenia", f"{len(zaproszone)}")
         k3.metric("Potwierdzone Przybycia", f"{len(potwierdzone)}")
-        
+
 # ==========================
 # ZAKŁADKA 2: ORGANIZACJA I BUDŻET
 # ==========================
 with tab2:
     st.header("🎧 Organizacja i Budżet")
 
-    # --- 0. Funkcja Callback do dodawania (Finanse) ---
     def dodaj_usluge():
         rola = st.session_state.get("org_rola", "")
         info = st.session_state.get("org_info", "")
@@ -235,7 +222,6 @@ with tab2:
             zapisz_nowy_wiersz(worksheet_obsluga, [rola, info, koszt, txt_oplacone, zaliczka_kwota, txt_zaliczka_opl])
             st.toast(f"💰 Dodano usługę: {rola}")
 
-            # Reset pól
             st.session_state["org_rola"] = ""
             st.session_state["org_info"] = ""
             st.session_state["org_koszt"] = 0.0
@@ -245,7 +231,6 @@ with tab2:
         else:
             st.warning("Musisz wpisać nazwę Roli (np. DJ, Fotograf)!")
 
-    # Pobieranie danych
     try:
         df_obsluga = pobierz_dane(worksheet_obsluga)
     except Exception as e:
@@ -255,7 +240,6 @@ with tab2:
     if df_obsluga.empty:
         df_obsluga = pd.DataFrame(columns=["Rola", "Informacje", "Koszt", "Czy_Oplacone", "Zaliczka", "Czy_Zaliczka_Oplacona"])
 
-    # --- 1. Formularz Dodawania ---
     with st.expander("➕ Dodaj nową usługę / koszt", expanded=False):
         c1, c2 = st.columns(2)
         with c1:
@@ -269,14 +253,11 @@ with tab2:
         
         st.button("Dodaj do budżetu", on_click=dodaj_usluge)
 
-    # --- 2. Tabela Edycji ---
     st.write("---")
     st.subheader(f"💸 Lista Wydatków ({len(df_obsluga)} pozycji)")
 
-    # PRZYGOTOWANIE DANYCH
     df_org_display = df_obsluga.copy()
 
-    # Czyszczenie typów danych (niezbędne dla sortowania i edycji)
     df_org_display["Koszt"] = pd.to_numeric(df_org_display["Koszt"], errors='coerce').fillna(0.0)
     df_org_display["Zaliczka"] = pd.to_numeric(df_org_display["Zaliczka"], errors='coerce').fillna(0.0)
     df_org_display["Rola"] = df_org_display["Rola"].astype(str).replace("nan", "")
@@ -288,7 +269,6 @@ with tab2:
     df_org_display["Czy_Oplacone"] = df_org_display["Czy_Oplacone"].apply(napraw_booleana)
     df_org_display["Czy_Zaliczka_Oplacona"] = df_org_display["Czy_Zaliczka_Oplacona"].apply(napraw_booleana)
 
-    # --- SORTOWANIE (Nowość w tej zakładce) ---
     col_sort1, col_sort2 = st.columns([1, 3])
     with col_sort1:
         st.write("**Sortuj wg:**")
@@ -301,17 +281,15 @@ with tab2:
             key="sort_finanse"
         )
 
-    # Logika sortowania
     if tryb_finanse == "💰 Najdroższe na górze":
         df_org_display = df_org_display.sort_values(by="Koszt", ascending=False)
     elif tryb_finanse == "❌ Nieopłacone na górze":
-        df_org_display = df_org_display.sort_values(by="Czy_Oplacone", ascending=True) # False (nieopłacone) jest "mniejsze" niż True
+        df_org_display = df_org_display.sort_values(by="Czy_Oplacone", ascending=True)
     elif tryb_finanse == "✅ Opłacone na górze":
         df_org_display = df_org_display.sort_values(by="Czy_Oplacone", ascending=False)
     elif tryb_finanse == "🔤 Rola (A-Z)":
         df_org_display = df_org_display.sort_values(by="Rola", ascending=True)
 
-    # EDYTOR
     edytowana_obsluga = st.data_editor(
         df_org_display,
         num_rows="dynamic",
@@ -328,14 +306,12 @@ with tab2:
         key="editor_obsluga"
     )
 
-    # ZAPISYWANIE
-    if st.button("💾 Zapisz zmiany"):
+    # ZAPISYWANIE - TUTAJ BYŁ BŁĄD, DODAŁEM KEY="save_obsluga"
+    if st.button("💾 Zapisz zmiany", key="save_obsluga"):
         df_to_save_org = edytowana_obsluga.copy()
         
-        # Usuwanie pustych
         df_to_save_org = df_to_save_org[df_to_save_org["Rola"].str.strip() != ""]
         
-        # Konwersja Bool -> Tak/Nie
         df_to_save_org["Czy_Oplacone"] = df_to_save_org["Czy_Oplacone"].apply(lambda x: "Tak" if x else "Nie")
         df_to_save_org["Czy_Zaliczka_Oplacona"] = df_to_save_org["Czy_Zaliczka_Oplacona"].apply(lambda x: "Tak" if x else "Nie")
         
@@ -345,7 +321,6 @@ with tab2:
         st.success("Zapisano budżet!")
         st.rerun()
 
-    # --- 3. PODSUMOWANIE ---
     if not df_org_display.empty:
         st.write("---")
         total_koszt = df_org_display["Koszt"].sum()
@@ -370,24 +345,20 @@ with tab2:
 with tab3:
     st.header("✅ Co trzeba zrobić?")
 
-    # --- 0. Funkcja Callback do dodawania zadań ---
     def dodaj_zadanie():
         tresc = st.session_state.get("todo_tresc", "")
         termin = st.session_state.get("todo_data", date.today())
         
         if tresc:
-            # Zamieniamy datę na tekst (rok-miesiąc-dzień), żeby Google Sheets zrozumiał
             termin_str = termin.strftime("%Y-%m-%d")
             
             zapisz_nowy_wiersz(worksheet_zadania, [tresc, termin_str, "Nie"])
             st.toast(f"📅 Dodano zadanie: {tresc}")
 
-            # Reset pola tekstowego (datę zostawiamy, bo może dodajesz kilka na ten sam dzień)
             st.session_state["todo_tresc"] = ""
         else:
             st.warning("Wpisz treść zadania!")
 
-    # Pobieranie danych
     try:
         df_zadania = pobierz_dane(worksheet_zadania)
     except Exception as e:
@@ -397,7 +368,6 @@ with tab3:
     if df_zadania.empty:
         df_zadania = pd.DataFrame(columns=["Zadanie", "Termin", "Czy_Zrobione"])
 
-    # --- 1. Formularz Dodawania ---
     with st.expander("➕ Dodaj nowe zadanie", expanded=False):
         c1, c2 = st.columns([2, 1])
         with c1:
@@ -407,25 +377,19 @@ with tab3:
         
         st.button("Dodaj do listy", on_click=dodaj_zadanie, key="btn_zadania")
 
-    # --- 2. Tabela Zadań ---
     st.write("---")
     st.subheader(f"Lista Zadań ({len(df_zadania)})")
 
-    # PRZYGOTOWANIE DANYCH
     df_todo_display = df_zadania.copy()
 
-    # Czyszczenie i formatowanie
     df_todo_display["Zadanie"] = df_todo_display["Zadanie"].astype(str).replace("nan", "")
     
-    # Konwersja kolumny Termin na prawdziwe daty (żeby sortowanie działało chronologicznie)
     df_todo_display["Termin"] = pd.to_datetime(df_todo_display["Termin"], errors='coerce').dt.date
 
-    # Konwersja "Czy zrobione"
     def napraw_booleana(x):
         return str(x).lower().strip() in ["tak", "true", "1", "yes"]
     df_todo_display["Czy_Zrobione"] = df_todo_display["Czy_Zrobione"].apply(napraw_booleana)
 
-    # --- SORTOWANIE ---
     col_sort1, col_sort2 = st.columns([1, 3])
     with col_sort1:
         st.write("**Filtruj / Sortuj:**")
@@ -438,17 +402,15 @@ with tab3:
             key="sort_todo"
         )
 
-    # Logika sortowania
     if tryb_todo == "📅 Najpilniejsze (Data)":
         df_todo_display = df_todo_display.sort_values(by="Termin", ascending=True)
     elif tryb_todo == "❌ Do zrobienia":
-        df_todo_display = df_todo_display.sort_values(by="Czy_Zrobione", ascending=True) # False na górze
+        df_todo_display = df_todo_display.sort_values(by="Czy_Zrobione", ascending=True)
     elif tryb_todo == "✅ Zrobione":
         df_todo_display = df_todo_display.sort_values(by="Czy_Zrobione", ascending=False)
     elif tryb_todo == "🔤 Nazwa (A-Z)":
         df_todo_display = df_todo_display.sort_values(by="Zadanie", ascending=True)
 
-    # EDYTOR
     edytowane_zadania = st.data_editor(
         df_todo_display,
         num_rows="dynamic",
@@ -462,18 +424,14 @@ with tab3:
         key="editor_zadania"
     )
 
-    # ZAPISYWANIE
-    if st.button("💾 Zapisz zmiany "):
+    # ZAPISYWANIE - TUTAJ DODAŁEM KEY="save_zadania"
+    if st.button("💾 Zapisz zmiany", key="save_zadania"):
         df_to_save_todo = edytowane_zadania.copy()
         
-        # Usuwamy puste
         df_to_save_todo = df_to_save_todo[df_to_save_todo["Zadanie"].str.strip() != ""]
         
-        # Konwersja Daty na tekst (dla Google Sheets)
-        # Musimy zamienić obiekty Date z powrotem na stringi YYYY-MM-DD
         df_to_save_todo["Termin"] = pd.to_datetime(df_to_save_todo["Termin"]).dt.strftime("%Y-%m-%d")
 
-        # Konwersja Bool -> Tak/Nie
         df_to_save_todo["Czy_Zrobione"] = df_to_save_todo["Czy_Zrobione"].apply(lambda x: "Tak" if x else "Nie")
         
         df_to_save_todo = df_to_save_todo.fillna("")
@@ -482,7 +440,6 @@ with tab3:
         st.success("Zaktualizowano listę zadań!")
         st.rerun()
 
-    # --- PASEK POSTĘPU ---
     if not df_zadania.empty:
         total = len(df_zadania)
         zrobione = len(df_zadania[df_zadania["Czy_Zrobione"].apply(napraw_booleana)])
