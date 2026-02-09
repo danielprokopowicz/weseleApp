@@ -36,9 +36,9 @@ def polacz_z_arkuszem():
     except:
         worksheet_stoly = None
         st.warning("⚠️ Brakuje zakładki 'Stoly' w Arkuszu Google! Utwórz ją z nagłówkami: Numer, Ksztalt, Liczba_Miejsc, Goscie_Lista")
-except Exception as e:
-    st.error(f"Błąd arkusza: {e}.")
-    st.stop()
+    except Exception as e:
+        st.error(f"Błąd arkusza: {e}.")
+        st.stop()
 # Inicjalizacja połączenia
 try:
     sh = polacz_z_arkuszem()
