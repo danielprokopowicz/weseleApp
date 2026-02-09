@@ -206,6 +206,7 @@ with tab1:
 with tab2:
     st.header("🎧 Organizacja i Budżet")
 
+    # --- 0. Funkcja Callback do dodawania (Finanse) ---
     def dodaj_usluge():
         rola = st.session_state.get("org_rola", "")
         info = st.session_state.get("org_info", "")
@@ -222,6 +223,7 @@ with tab2:
             zapisz_nowy_wiersz(worksheet_obsluga, [rola, info, koszt, txt_oplacone, zaliczka_kwota, txt_zaliczka_opl])
             st.toast(f"💰 Dodano usługę: {rola}")
 
+            # Reset pól
             st.session_state["org_rola"] = ""
             st.session_state["org_info"] = ""
             st.session_state["org_koszt"] = 0.0
@@ -231,6 +233,7 @@ with tab2:
         else:
             st.warning("Musisz wpisać nazwę Roli (np. DJ, Fotograf)!")
 
+    # Pobieranie danych
     try:
         df_obsluga = pobierz_dane(worksheet_obsluga)
     except Exception as e:
@@ -240,6 +243,10 @@ with tab2:
     if df_obsluga.empty:
         df_obsluga = pd.DataFrame(columns=["Rola", "Informacje", "Koszt", "Czy_Oplacone", "Zaliczka", "Czy_Zaliczka_Oplacona"])
 
+    # ZABEZPIECZENIE: Usuwamy spacje z nazw kolumn (gdyby w Google Sheets było "Koszt " zamiast "Koszt")
+    df_obsluga.columns = df_obsluga.columns.str.strip()
+
+    # --- 1. Formularz Dodawania ---
     with st.expander("➕ Dodaj nową usługę / koszt", expanded=False):
         c1, c2 = st.columns(2)
         with c1:
@@ -251,13 +258,16 @@ with tab2:
             st.number_input("Wymagana Zaliczka (0 jeśli brak)", min_value=0.0, step=100.0, key="org_zaliczka_kwota")
             st.checkbox("Czy zaliczka opłacona?", key="org_zaliczka_oplacona")
         
-        st.button("Dodaj do budżetu", on_click=dodaj_usluge)
+        st.button("Dodaj do budżetu", on_click=dodaj_usluge, key="btn_obsluga") # Dodany unikalny key dla przycisku
 
+    # --- 2. Tabela Edycji ---
     st.write("---")
     st.subheader(f"💸 Lista Wydatków ({len(df_obsluga)} pozycji)")
 
+    # PRZYGOTOWANIE DANYCH
     df_org_display = df_obsluga.copy()
 
+    # Czyszczenie typów danych
     df_org_display["Koszt"] = pd.to_numeric(df_org_display["Koszt"], errors='coerce').fillna(0.0)
     df_org_display["Zaliczka"] = pd.to_numeric(df_org_display["Zaliczka"], errors='coerce').fillna(0.0)
     df_org_display["Rola"] = df_org_display["Rola"].astype(str).replace("nan", "")
@@ -269,27 +279,45 @@ with tab2:
     df_org_display["Czy_Oplacone"] = df_org_display["Czy_Oplacone"].apply(napraw_booleana)
     df_org_display["Czy_Zaliczka_Oplacona"] = df_org_display["Czy_Zaliczka_Oplacona"].apply(napraw_booleana)
 
+    # --- SORTOWANIE (POPRAWIONE) ---
+    # Definiujemy nazwy opcji w zmiennych, żeby uniknąć literówek
+    O_DOMYSLNE = "Domyślnie"
+    O_NAJDROZSZE = "💰 Najdroższe"
+    O_NIEOPLACONE = "❌ Nieopłacone (Całość)"
+    O_OPLACONE = "✅ Opłacone (Całość)"
+    O_BRAK_ZALICZKI = "❌ Brak Opłaconej Zaliczki"
+    O_ZALICZKA_OK = "✅ Zaliczka Opłacona"
+    O_AZ = "🔤 Rola (A-Z)"
+
     col_sort1, col_sort2 = st.columns([1, 3])
     with col_sort1:
         st.write("**Sortuj wg:**")
     with col_sort2:
         tryb_finanse = st.radio(
             "Sortowanie Finansów",
-            options=["Domyślnie", "💰 Najdroższe na górze", "❌ Nieopłacone na górze", "✅ Opłacone na górze", "🔤 Rola (A-Z)"],
+            options=[O_DOMYSLNE, O_NAJDROZSZE, O_NIEOPLACONE, O_OPLACONE, O_BRAK_ZALICZKI, O_ZALICZKA_OK, O_AZ],
             label_visibility="collapsed",
             horizontal=True,
             key="sort_finanse"
         )
 
-    if tryb_finanse == "💰 Najdroższe na górze":
+    # Logika sortowania
+    if tryb_finanse == O_NAJDROZSZE:
         df_org_display = df_org_display.sort_values(by="Koszt", ascending=False)
-    elif tryb_finanse == "❌ Nieopłacone na górze":
+    elif tryb_finanse == O_NIEOPLACONE:
         df_org_display = df_org_display.sort_values(by="Czy_Oplacone", ascending=True)
-    elif tryb_finanse == "✅ Opłacone na górze":
+    elif tryb_finanse == O_OPLACONE:
         df_org_display = df_org_display.sort_values(by="Czy_Oplacone", ascending=False)
-    elif tryb_finanse == "🔤 Rola (A-Z)":
+    elif tryb_finanse == O_BRAK_ZALICZKI:
+        # Puste okienka (False) idą na górę
+        df_org_display = df_org_display.sort_values(by="Czy_Zaliczka_Oplacona", ascending=True)
+    elif tryb_finanse == O_ZALICZKA_OK:
+        # Zaznaczone okienka (True) idą na górę
+        df_org_display = df_org_display.sort_values(by="Czy_Zaliczka_Oplacona", ascending=False)
+    elif tryb_finanse == O_AZ:
         df_org_display = df_org_display.sort_values(by="Rola", ascending=True)
 
+    # EDYTOR
     edytowana_obsluga = st.data_editor(
         df_org_display,
         num_rows="dynamic",
@@ -306,12 +334,14 @@ with tab2:
         key="editor_obsluga"
     )
 
-    # ZAPISYWANIE - TUTAJ BYŁ BŁĄD, DODAŁEM KEY="save_obsluga"
+    # ZAPISYWANIE
     if st.button("💾 Zapisz zmiany", key="save_obsluga"):
         df_to_save_org = edytowana_obsluga.copy()
         
+        # Usuwanie pustych
         df_to_save_org = df_to_save_org[df_to_save_org["Rola"].str.strip() != ""]
         
+        # Konwersja Bool -> Tak/Nie
         df_to_save_org["Czy_Oplacone"] = df_to_save_org["Czy_Oplacone"].apply(lambda x: "Tak" if x else "Nie")
         df_to_save_org["Czy_Zaliczka_Oplacona"] = df_to_save_org["Czy_Zaliczka_Oplacona"].apply(lambda x: "Tak" if x else "Nie")
         
@@ -321,6 +351,7 @@ with tab2:
         st.success("Zapisano budżet!")
         st.rerun()
 
+    # --- 3. PODSUMOWANIE ---
     if not df_org_display.empty:
         st.write("---")
         total_koszt = df_org_display["Koszt"].sum()
