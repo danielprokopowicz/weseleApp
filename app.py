@@ -58,9 +58,8 @@ with tab1:
     st.header("Zarządzanie Gośćmi")
 
     # --- 0. Funkcja obsługująca kliknięcie (Callback) ---
-    # To jest serce naprawy błędu. Ta funkcja wykona się w tle PRZED odświeżeniem ekranu.
+    # Ta funkcja wykonuje się PRZED przeładowaniem strony
     def obsluga_dodawania():
-        # Pobieramy wartości bezpośrednio z "pamięci" formularza
         imie_glowne = st.session_state.get("input_imie", "")
         imie_partnera = st.session_state.get("input_partner", "")
         czy_rsvp = st.session_state.get("check_rsvp", False)
@@ -70,15 +69,14 @@ with tab1:
             rsvp_text = "Tak" if czy_rsvp else "Nie"
             
             # 1. Dodajemy głównego gościa
-            # Uwaga: używamy 'worksheet_goscie' który jest zdefiniowany wyżej w skrypcie
             zapisz_nowy_wiersz(worksheet_goscie, [imie_glowne, "", rsvp_text])
-            st.toast(f"✅ Dodano: {imie_glowne}") # Wyświetli ładny dymek sukcesu
+            st.toast(f"✅ Dodano: {imie_glowne}")
 
             # 2. Dodajemy osobę towarzyszącą (jeśli zaznaczono)
             if czy_z_osoba and imie_partnera:
                 zapisz_nowy_wiersz(worksheet_goscie, [imie_partnera, f"(Osoba tow. dla: {imie_glowne})", rsvp_text])
             
-            # 3. RESETOWANIE PÓL (To teraz zadziała bezpiecznie!)
+            # 3. Bezpieczne czyszczenie formularza
             st.session_state["input_imie"] = ""
             st.session_state["input_partner"] = ""
             st.session_state["check_rsvp"] = False
@@ -86,7 +84,7 @@ with tab1:
         else:
             st.warning("Musisz wpisać imię głównego gościa!")
 
-    # Pobieranie danych z Google (żeby tabela była aktualna)
+    # Pobieranie danych
     try:
         df_goscie = pobierz_dane(worksheet_goscie)
     except Exception as e:
@@ -94,27 +92,22 @@ with tab1:
         st.stop()
     
     if df_goscie.empty:
-        df_goscie = pd.DataFrame(columns=["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP"])
+        df_goscie = pd.DataFrame(columns=["Imie_Nazwisko", "Imie_Osoby_Tow", "Potwierdzenie"])
 
-    # --- 1. Formularz Dodawania (Interfejs) ---
+    # --- 1. Formularz Dodawania ---
     with st.expander("➕ Dodaj nowego gościa", expanded=True):
-        
-        # Checkbox decydujący o układzie
-        # Musimy użyć key, żeby funkcja callback mogła go zresetować
         czy_z_osoba = st.checkbox("Chcę dodać też osobę towarzyszącą (+1)", key="check_plusone")
 
         c1, c2 = st.columns(2)
         with c1:
             st.text_input("Imię i Nazwisko Gościa", key="input_imie")
         with c2:
-            # Pole partnera pokazuje się tylko gdy checkbox jest zaznaczony
             if czy_z_osoba:
                 st.text_input("Imię Osoby Towarzyszącej", key="input_partner")
 
-        st.checkbox("Czy potwierdzili przybycie (RSVP)?", key="check_rsvp")
+        st.checkbox("Czy potwierdzili przybycie?", key="check_rsvp")
         
-        # PRZYCISK: Zauważ, że nie ma tu 'if st.button'.
-        # Jest parametr 'on_click', który wywołuje naszą funkcję naprawczą z góry.
+        # Przycisk z callbackiem
         st.button("Dodaj do listy", on_click=obsluga_dodawania)
 
     # --- 2. Tabela ---
@@ -122,16 +115,16 @@ with tab1:
     st.subheader(f"📋 Lista Gości ({len(df_goscie)} pozycji)")
 
     df_display = df_goscie.copy()
-    # Konwersja RSVP na checkbox (bezpieczna)
-    df_display["RSVP"] = df_display["RSVP"].apply(lambda x: True if str(x).lower() == "tak" else False)
+    df_display["Potwierdzenie"] = df_display["Potwierdzenie"].apply(lambda x: True if str(x).lower() == "tak" else False)
 
+    # TUTAJ ZMIANA: Usunęliśmy num_rows="dynamic"
     edytowane_goscie = st.data_editor(
         df_display,
-        num_rows="dynamic",
+        num_rows="fixed",  # To blokuje dodawanie/usuwanie wierszy w tabeli
         column_config={
             "Imie_Nazwisko": st.column_config.TextColumn("Imię i Nazwisko"),
             "Imie_Osoby_Tow": st.column_config.TextColumn("Info (+1)", disabled=True),
-            "RSVP": st.column_config.CheckboxColumn("RSVP")
+            "RSVP": st.column_config.CheckboxColumn("Powierdzenie")
         },
         use_container_width=True,
         key="editor_goscie"
@@ -139,14 +132,14 @@ with tab1:
 
     if st.button("💾 Zapisz zmiany w tabeli (Goście)"):
         df_to_save = edytowane_goscie.copy()
-        df_to_save["RSVP"] = df_to_save["RSVP"].apply(lambda x: "Tak" if x else "Nie")
+        df_to_save["Potwierdzone"] = df_to_save["Potwierdzone"].apply(lambda x: "Tak" if x else "Nie")
         df_to_save = df_to_save.fillna("")
         aktualizuj_caly_arkusz(worksheet_goscie, df_to_save)
         st.success("Zapisano zmiany w Google Sheets!")
         st.rerun()
 
     if not df_goscie.empty:
-        potwierdzone = df_goscie[df_goscie["RSVP"].astype(str) == "Tak"]
+        potwierdzone = df_goscie[df_goscie["Potwierdzenie"].astype(str) == "Tak"]
         st.info(f"Gości: {len(df_goscie)} | Potwierdziło: {len(potwierdzone)}")
 # ==========================
 # ZAKŁADKA 2: OBSŁUGA
