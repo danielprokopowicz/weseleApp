@@ -559,32 +559,6 @@ with tab2:
         st.success("Zapisano budżet!")
         st.rerun()
 
-    # --- PODSUMOWANIE I WYKRESY (ZMODYFIKOWANE) ---
-    if not df_obsluga.empty:
-        df_calc = df_obsluga.copy()
-        df_calc["Koszt"] = pd.to_numeric(df_calc["Koszt"], errors='coerce').fillna(0.0)
-        df_calc["Zaliczka"] = pd.to_numeric(df_calc["Zaliczka"], errors='coerce').fillna(0.0)
-        def fix_bool(x): return str(x).lower().strip() in ["tak", "true", "1", "yes"]
-        df_calc["Czy_Oplacone_Bool"] = df_calc["Czy_Oplacone"].apply(fix_bool)
-        df_calc["Czy_Zaliczka_Bool"] = df_calc["Czy_Zaliczka_Oplacona"].apply(fix_bool)
-        
-        st.write("---")
-        
-        total_koszt = df_calc["Koszt"].sum()
-        wydano = 0.0
-        for index, row in df_calc.iterrows():
-            if row["Czy_Oplacone_Bool"]:
-                wydano += row["Koszt"]
-            elif row["Czy_Zaliczka_Bool"]:
-                wydano += row["Zaliczka"]
-        
-        pozostalo = total_koszt - wydano
-        
-        k1, k2, k3 = st.columns(3)
-        k1.metric("Łączny budżet", f"{total_koszt:,.0f} zł".replace(",", " "))
-        k2.metric("Już zapłacono", f"{wydano:,.0f} zł".replace(",", " "))
-        k3.metric("Pozostało", f"{pozostalo:,.0f} zł".replace(",", " "), delta=f"-{pozostalo} zł", delta_color="inverse")
-
         # --- WYKRESY ---
 if not df_obsluga.empty:
         df_calc = df_obsluga.copy()
