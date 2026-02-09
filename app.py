@@ -68,7 +68,7 @@ def aktualizuj_caly_arkusz(worksheet, df):
 
 # --- UI APLIKACJI ---
 st.title("💍 Menadżer Ślubny")
-tab1, tab2, tab3 = st.tabs(["👥 Lista Gości", "🎧 Organizacja", "✅ Lista Zadań"])
+tab1, tab2, tab3, tab4 = st.tabs(["👥 Lista Gości", "🎧 Organizacja", "✅ Lista Zadań", "🍽️ Rozplanowanie Stołów"])
 
 # ==========================
 # ZAKŁADKA 1: GOŚCIE
