@@ -57,7 +57,7 @@ tab1, tab2 = st.tabs(["👥 Lista Gości", "🎧 Obsługa i Koszty"])
 with tab1:
     st.header("Zarządzanie Gośćmi")
 
-    # --- 0. Funkcja obsługująca kliknięcie (Callback) ---
+    # --- 0. Funkcja obsługująca kliknięcie DODAJ (Callback) ---
     def obsluga_dodawania():
         imie_glowne = st.session_state.get("input_imie", "")
         imie_partnera = st.session_state.get("input_partner", "")
@@ -65,7 +65,6 @@ with tab1:
         czy_z_osoba = st.session_state.get("check_plusone", False)
 
         if imie_glowne:
-            # Zapisujemy jako "Tak"/"Nie" do Google Sheets
             rsvp_text = "Tak" if czy_rsvp else "Nie"
             
             # 1. Główny gość
@@ -105,40 +104,56 @@ with tab1:
             if czy_z_osoba:
                 st.text_input("Imię Osoby Towarzyszącej", key="input_partner")
 
-        # ZMIANA NAZWY TUTAJ (W formularzu)
         st.checkbox("Potwierdzenie Przybycia", key="check_rsvp")
-        
         st.button("Dodaj do listy", on_click=obsluga_dodawania)
 
-    # --- 2. Tabela ---
+    # --- 2. Tabela Edycji i Usuwania ---
     st.write("---")
     st.subheader(f"📋 Lista Gości ({len(df_goscie)} pozycji)")
-    st.caption("Kliknij w nagłówek kolumny 'Potwierdzenie Przybycia', aby posortować listę!")
+    st.caption("ℹ️ Aby usunąć gościa: zaznacz 'Usuń' i kliknij Zapisz. Aby zmienić opis osoby towarzyszącej: kliknij w jej pole 'Info'.")
 
     df_display = df_goscie.copy()
-    # Konwersja na True/False żeby były checkboxy (ptaszki)
+    
+    # A. Konwersja RSVP na checkbox
     df_display["RSVP"] = df_display["RSVP"].apply(lambda x: True if str(x).lower() == "tak" else False)
+    
+    # B. Dodajemy tymczasową kolumnę "Usuń" (domyślnie niezaznaczoną)
+    df_display["Usuń"] = False
 
     edytowane_goscie = st.data_editor(
         df_display,
-        num_rows="fixed",
+        num_rows="fixed", # Nadal zablokowane dodawanie nowych wierszy tabelą
         column_config={
-            "Imie_Nazwisko": st.column_config.TextColumn("Imię i Nazwisko"),
-            "Imie_Osoby_Tow": st.column_config.TextColumn("Info (+1)", disabled=True),
-            # ZMIANA NAZWY TUTAJ (W tabeli)
-            "RSVP": st.column_config.CheckboxColumn("Potwierdzenie Przybycia")
+            "Imie_Nazwisko": st.column_config.TextColumn("Imię i Nazwisko", required=True),
+            # TUTAJ ZMIANA: Usunąłem disabled=True, więc możesz edytować ten tekst ręcznie!
+            "Imie_Osoby_Tow": st.column_config.TextColumn("Info (+1) / Powiązanie"),
+            "RSVP": st.column_config.CheckboxColumn("Potwierdzenie Przybycia"),
+            "Usuń": st.column_config.CheckboxColumn("🗑️ Usuń", help="Zaznacz i kliknij Zapisz, aby skasować")
         },
         use_container_width=True,
         key="editor_goscie"
     )
 
-    if st.button("💾 Zapisz zmiany w tabeli (Goście)"):
-        df_to_save = edytowane_goscie.copy()
-        # Konwersja z powrotem na Tak/Nie dla Google Sheets
+    if st.button("💾 Zapisz zmiany (Edycja / Usuwanie)"):
+        # 1. Filtrujemy - zostawiamy tylko te wiersze, gdzie "Usuń" jest False
+        df_to_save = edytowane_goscie[edytowane_goscie["Usuń"] == False].copy()
+        
+        # 2. Usuwamy kolumnę "Usuń", bo nie chcemy jej wysyłać do Google Sheets
+        df_to_save = df_to_save.drop(columns=["Usuń"])
+        
+        # 3. Konwersja RSVP z powrotem na tekst
         df_to_save["RSVP"] = df_to_save["RSVP"].apply(lambda x: "Tak" if x else "Nie")
         df_to_save = df_to_save.fillna("")
+        
+        # 4. Wysyłamy do Google
         aktualizuj_caly_arkusz(worksheet_goscie, df_to_save)
-        st.success("Zapisano zmiany w Google Sheets!")
+        
+        # 5. Komunikat
+        usuniete_ilosc = len(edytowane_goscie) - len(df_to_save)
+        if usuniete_ilosc > 0:
+            st.success(f"Zapisano zmiany i usunięto {usuniete_ilosc} osób!")
+        else:
+            st.success("Zapisano zmiany w Google Sheets!")
         st.rerun()
 
     if not df_goscie.empty:
