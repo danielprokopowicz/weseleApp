@@ -103,8 +103,10 @@ with tab1:
         df_goscie = pd.DataFrame(columns=["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP", "Zaproszenie_Wyslane"])
 
     # Zabezpieczenie brakujących kolumn w Gościach
-    if "Zaproszenie_Wyslane" not in df_goscie.columns:
-        df_goscie["Zaproszenie_Wyslane"] = "Nie"
+    kolumny_goscie = ["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP", "Zaproszenie_Wyslane"]
+    for col in kolumny_goscie:
+        if col not in df_goscie.columns:
+            df_goscie[col] = ""
 
     # --- 1. Formularz Dodawania ---
     with st.expander("➕ Szybkie dodawanie (Formularz)", expanded=False):
@@ -134,11 +136,11 @@ with tab1:
     
     # Konwersja na string (zabezpieczenie przed błędami)
     if not df_display.empty:
-        df_display["Imie_Nazwisko"] = df_display["Imie_Nazwisko"].astype(str).replace("nan", "")
-        df_display["Imie_Osoby_Tow"] = df_display["Imie_Osoby_Tow"].astype(str).replace("nan", "")
-    else:
-        # Pusty dataframe, ale z odpowiednimi kolumnami
-        df_display = pd.DataFrame(columns=["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP", "Zaproszenie_Wyslane"])
+        # Sprawdzamy obecność kolumn przed operacjami
+        if "Imie_Nazwisko" in df_display.columns:
+            df_display["Imie_Nazwisko"] = df_display["Imie_Nazwisko"].astype(str).replace("nan", "")
+        if "Imie_Osoby_Tow" in df_display.columns:
+            df_display["Imie_Osoby_Tow"] = df_display["Imie_Osoby_Tow"].astype(str).replace("nan", "")
 
     def parsuj_bool(wartosc):
         return str(wartosc).lower() in ["tak", "true", "1", "yes"]
@@ -270,7 +272,7 @@ with tab2:
     wymagane_kolumny_org = ["Rola", "Informacje", "Koszt", "Czy_Oplacone", "Zaliczka", "Czy_Zaliczka_Oplacona"]
     for col in wymagane_kolumny_org:
         if col not in df_obsluga.columns:
-            df_obsluga[col] = "" # Dodajemy brakującą kolumnę
+            df_obsluga[col] = "" # Dodajemy brakującą kolumnę z pustymi wartościami
 
     # --- 1. Formularz Dodawania ---
     with st.expander("➕ Dodaj nową usługę / koszt", expanded=False):
