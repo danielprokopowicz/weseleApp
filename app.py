@@ -55,19 +55,6 @@ tab1, tab2 = st.tabs(["👥 Lista Gości", "🎧 Obsługa i Koszty"])
 # ZAKŁADKA 1: GOŚCIE
 # ==========================
 with tab1:
-    # --- CSS HACK: Ukrywanie paska dodawania (Plusa) ---
-    st.markdown("""
-        <style>
-        /* Ukrywa ostatni wiersz w tabeli (ten szary z plusem) */
-        [data-testid="stDataEditor"] table tbody tr:last-child {
-            display: none;
-        }
-        /* Dla nowszych wersji Streamlit (Glide Data Grid) - to ukrywa przycisk "trail" */
-        iframe[title="data_editor"] {
-            clip-path: inset(0px 0px 35px 0px);
-        }
-        </style>
-    """, unsafe_allow_html=True)
     st.header("Zarządzanie Gośćmi")
 
     # --- 0. Funkcja obsługująca kliknięcie DODAJ (Callback) ---
@@ -122,17 +109,20 @@ with tab1:
 
     # --- 2. Tabela Edycji i Usuwania ---
     st.write("---")
-    st.subheader(f"📋 Lista Gości ({len(df_goscie)} pozycji)")
-    st.caption("ℹ️ Aby usunąć: zaznacz wiersz po lewej stronie (kliknij w numer) i naciśnij ikonę kosza 🗑️ w prawym górnym rogu tabeli.")
+    col_header, col_info = st.columns([2, 1])
+    with col_header:
+        st.subheader(f"📋 Lista Gości ({len(df_goscie)} pozycji)")
+    with col_info:
+        st.caption("Kliknij nagłówek, by sortować. Zaznacz wiersz, by usunąć (kosz).")
 
     df_display = df_goscie.copy()
     
-    # Konwersja RSVP na checkbox
+    # Konwersja RSVP na checkbox (dzięki temu sortowanie działa: Puste vs Zaznaczone)
     df_display["RSVP"] = df_display["RSVP"].apply(lambda x: True if str(x).lower() == "tak" else False)
 
     edytowane_goscie = st.data_editor(
         df_display,
-        num_rows="dynamic", # To włącza pasek narzędzi z koszem!
+        num_rows="dynamic", # To włącza KOSZ (ale niestety też PLUSA)
         column_config={
             "Imie_Nazwisko": st.column_config.TextColumn("Imię i Nazwisko", required=True),
             "Imie_Osoby_Tow": st.column_config.TextColumn("Info (+1) / Powiązanie"),
@@ -143,19 +133,20 @@ with tab1:
     )
 
     if st.button("💾 Zapisz zmiany (Edycja / Usuwanie)"):
-        # 1. Bierzemy edytowaną tabelę
+        # 1. Kopiujemy dane z edytora
         df_to_save = edytowane_goscie.copy()
         
-        # 2. ZABEZPIECZENIE: Usuwamy puste wiersze
-        # Jeśli ktoś kliknął "+" w tabeli, ale nie wpisał imienia, to ten wiersz wyrzucamy.
-        # Dzięki temu dodawanie działa tylko przez górny formularz.
-        df_to_save = df_to_save[df_to_save["Imie_Nazwisko"].str.len() > 0]
+        # 2. ZABEZPIECZENIE PRZED PUSTYMI WIERSZAMI Z PLUSA
+        # Usuwamy wiersze, gdzie Imię jest puste.
+        # Dzięki temu, nawet jak ktoś kliknie PLUS na dole tabeli, ale nic nie wpisze,
+        # to ten pusty wiersz zniknie przy zapisie.
+        df_to_save = df_to_save[df_to_save["Imie_Nazwisko"].astype(str).str.strip() != ""]
 
-        # 3. Konwersja RSVP
+        # 3. Konwersja RSVP z powrotem na tekst
         df_to_save["RSVP"] = df_to_save["RSVP"].apply(lambda x: "Tak" if x else "Nie")
         df_to_save = df_to_save.fillna("")
         
-        # 4. Wysyłamy do Google (nadpisujemy arkusz aktualnym stanem tabeli)
+        # 4. Wysyłamy do Google
         aktualizuj_caly_arkusz(worksheet_goscie, df_to_save)
         
         st.success("Zapisano zmiany w Google Sheets!")
