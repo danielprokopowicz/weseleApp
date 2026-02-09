@@ -55,6 +55,19 @@ tab1, tab2 = st.tabs(["👥 Lista Gości", "🎧 Obsługa i Koszty"])
 # ZAKŁADKA 1: GOŚCIE
 # ==========================
 with tab1:
+    # --- CSS HACK: Ukrywanie paska dodawania (Plusa) ---
+    st.markdown("""
+        <style>
+        /* Ukrywa ostatni wiersz w tabeli (ten szary z plusem) */
+        [data-testid="stDataEditor"] table tbody tr:last-child {
+            display: none;
+        }
+        /* Dla nowszych wersji Streamlit (Glide Data Grid) - to ukrywa przycisk "trail" */
+        iframe[title="data_editor"] {
+            clip-path: inset(0px 0px 35px 0px);
+        }
+        </style>
+    """, unsafe_allow_html=True)
     st.header("Zarządzanie Gośćmi")
 
     # --- 0. Funkcja obsługująca kliknięcie DODAJ (Callback) ---
@@ -151,6 +164,7 @@ with tab1:
     if not df_goscie.empty:
         potwierdzone = df_goscie[df_goscie["RSVP"].astype(str) == "Tak"]
         st.info(f"Gości: {len(df_goscie)} | Potwierdziło: {len(potwierdzone)}")
+        
 # ==========================
 # ZAKŁADKA 2: OBSŁUGA
 # ==========================
