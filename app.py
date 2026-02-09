@@ -176,7 +176,7 @@ with tab1:
         column_config={
             "Imie_Nazwisko": st.column_config.TextColumn("Imię i Nazwisko", required=True),
             "Imie_Osoby_Tow": st.column_config.TextColumn("Info (+1) / Powiązanie", width="large"),
-            "Zaproszenie_Wyslane": st.column_config.CheckboxColumn("✉️ Wysłane?", default=False),
+            "Zaproszenie_Wyslane": st.column_config.CheckboxColumn("✉️ Wysłane Zaproszenie", default=False),
             "RSVP": st.column_config.CheckboxColumn("✅ Potwierdzone Przybycie", default=False)
         },
         use_container_width=True,
