@@ -85,30 +85,20 @@ except Exception as e:
 
 # --- FUNKCJE POMOCNICZE ---
 
-def pobierz_dane(worksheet):
-
-    # get_all_records wymaga, aby 1. wiersz był nagłówkami i nie miał pustych komórek w środku zakresu
-
-    dane = worksheet.get_all_records()
-
+def pobierz_dane(_worksheet):
+    # Podkreślnik przed _worksheet (_worksheet) to sygnał dla Streamlit, 
+    # żeby nie próbował "hashować" tego obiektu (to techniczny wymóg przy gspread).
+    dane = _worksheet.get_all_records()
     return pd.DataFrame(dane)
 
-
-
 def zapisz_nowy_wiersz(worksheet, lista_wartosci):
-
     worksheet.append_row(lista_wartosci)
-
-
+    st.cache_data.clear()  # <--- TO JEST KLUCZOWA POPRAWKA (Czyści pamięć po dodaniu)
 
 def aktualizuj_caly_arkusz(worksheet, df):
-
     worksheet.clear()
-
-    # Zapisujemy nagłówki i dane
-
     worksheet.update([df.columns.values.tolist()] + df.values.tolist())
-
+    st.cache_data.clear()
 
 
 # --- UI APLIKACJI ---
@@ -413,66 +403,72 @@ with tab1:
 with tab2:
     st.header("🎧 Organizacja i Budżet")
 
-    # Najpierw pobieramy dane, aby wiedzieć jakie kategorie już istnieją
+    # 1. Pobranie danych (żeby znać aktualne kategorie)
     try:
         df_obsluga = pobierz_dane(worksheet_obsluga)
     except Exception as e:
-        st.error("Błąd danych w zakładce Obsluga.")
+        st.error("Błąd danych. Sprawdź nagłówki w zakładce Obsluga.")
         st.stop()
 
-    # Struktura danych
+    # 2. Definicja kolumn i struktury
     wymagane_kolumny_org = ["Kategoria", "Rola", "Informacje", "Koszt", "Czy_Oplacone", "Zaliczka", "Czy_Zaliczka_Oplacona"]
+    
     if df_obsluga.empty:
         df_obsluga = pd.DataFrame(columns=wymagane_kolumny_org)
 
-    # ZABEZPIECZENIE KOLUMN
+    # Zabezpieczenie nazw kolumn i uzupełnianie braków
     df_obsluga.columns = df_obsluga.columns.str.strip()
     for col in wymagane_kolumny_org:
         if col not in df_obsluga.columns:
             df_obsluga[col] = ""
             if col == "Kategoria": df_obsluga[col] = "Inne"
 
-    # --- DYNAMICZNA LISTA KATEGORII ---
-    # 1. Bierzemy bazę
-    wszystkie_kategorie = set(LISTA_KATEGORII_BAZA)
-    # 2. Jeśli w tabeli są już jakieś wpisy, dodajemy kategorie z tabeli do listy
-    if not df_obsluga.empty:
-        kategorie_z_arkusza = df_obsluga["Kategoria"].unique().tolist()
-        # Usuwamy puste i dodajemy do zbioru
-        for k in kategorie_z_arkusza:
-            if k and str(k).strip() != "":
-                wszystkie_kategorie.add(str(k).strip())
+    # --- LOGIKA DYNAMICZNYCH KATEGORII ---
+    # Bierzemy listę stałą (z góry pliku)
+    # Lista kategorii musi być zdefiniowana na początku pliku jako LISTA_KATEGORII = [...]
+    # Jeśli jej nie masz, zdefiniuj ją tutaj lokalnie:
+    baza_kategorii = [
+        "Sala i Jedzenie", "Muzyka i Oprawa", "Foto i Video", 
+        "Stroje i Obrączki", "Dekoracje i Kwiaty", "Transport i Nocleg", 
+        "Formalności", "Inne"
+    ]
     
-    # 3. Sortujemy i dodajemy opcję tworzenia nowej
-    lista_do_wyboru = sorted(list(wszystkie_kategorie))
-    lista_do_wyboru.append("➕ Stwórz nową kategorię...")
+    # Pobieramy kategorie, które już są w Excelu (żeby lista się "uczyła")
+    if not df_obsluga.empty:
+        obecne_w_arkuszu = df_obsluga["Kategoria"].unique().tolist()
+        # Łączymy bazę z tym co w arkuszu i usuwamy duplikaty
+        wszystkie_kategorie = sorted(list(set(baza_kategorii + [x for x in obecne_w_arkuszu if str(x).strip() != ""])))
+    else:
+        wszystkie_kategorie = sorted(baza_kategorii)
 
-    # --- Funkcja Callback ---
+    # Tworzymy listę do formularza z opcją dodawania
+    opcje_do_wyboru = wszystkie_kategorie + ["➕ Stwórz nową kategorię..."]
+
+    # --- FUNKCJA DODAWANIA ---
     def dodaj_usluge():
-        # Logika wyboru kategorii:
-        wybor_z_listy = st.session_state.get("org_kategoria_select", "Inne")
-        wpisana_recznie = st.session_state.get("org_kategoria_input", "")
+        # Sprawdzamy co wybrano w selectbox
+        wybor = st.session_state.get("org_kategoria_select")
+        nowa_kat = st.session_state.get("org_kategoria_input", "")
         
-        # Jeśli wybrano "Stwórz nową", bierzemy tekst z inputa, w przeciwnym razie z listy
-        if wybor_z_listy == "➕ Stwórz nową kategorię...":
-            finalna_kategoria = wpisana_recznie.strip()
+        # Ustalamy finalną nazwę kategorii
+        if wybor == "➕ Stwórz nową kategorię...":
+            kategoria_finalna = nowa_kat.strip()
         else:
-            finalna_kategoria = wybor_z_listy
+            kategoria_finalna = wybor
 
         rola = st.session_state.get("org_rola", "")
         info = st.session_state.get("org_info", "")
         koszt = st.session_state.get("org_koszt", 0.0)
         czy_oplacone = st.session_state.get("org_oplacone", False)
-        
         zaliczka_kwota = st.session_state.get("org_zaliczka_kwota", 0.0)
         czy_zaliczka_oplacona = st.session_state.get("org_zaliczka_oplacona", False)
 
-        if rola and finalna_kategoria:
+        if rola and kategoria_finalna:
             txt_oplacone = "Tak" if czy_oplacone else "Nie"
             txt_zaliczka_opl = "Tak" if czy_zaliczka_oplacona else "Nie"
 
-            zapisz_nowy_wiersz(worksheet_obsluga, [finalna_kategoria, rola, info, koszt, txt_oplacone, zaliczka_kwota, txt_zaliczka_opl])
-            st.toast(f"💰 Dodano: {rola} do kategorii {finalna_kategoria}")
+            zapisz_nowy_wiersz(worksheet_obsluga, [kategoria_finalna, rola, info, koszt, txt_oplacone, zaliczka_kwota, txt_zaliczka_opl])
+            st.toast(f"💰 Dodano: {rola} ({kategoria_finalna})")
 
             # Reset pól
             st.session_state["org_rola"] = ""
@@ -481,21 +477,19 @@ with tab2:
             st.session_state["org_oplacone"] = False
             st.session_state["org_zaliczka_kwota"] = 0.0
             st.session_state["org_zaliczka_oplacona"] = False
-            st.session_state["org_kategoria_input"] = "" # Czyścimy pole ręczne
+            st.session_state["org_kategoria_input"] = "" # Czyścimy pole nowej kategorii
         else:
-            st.warning("Musisz wpisać nazwę Roli i wybrać/wpisać Kategorię!")
+            st.warning("Musisz wpisać nazwę Roli i wybrać Kategorię!")
 
-    # --- Formularz Dodawania ---
+    # --- 1. Formularz Dodawania ---
     with st.expander("➕ Dodaj nową usługę / koszt", expanded=False):
         c_kat, c_rol = st.columns([1, 2])
         with c_kat:
-            # Selectbox korzysta teraz z dynamicznej listy
-            wybor = st.selectbox("Kategoria", options=lista_do_wyboru, key="org_kategoria_select")
-            
-            # Jeśli wybrano opcję dodawania, pojawia się nowe pole tekstowe
-            if wybor == "➕ Stwórz nową kategorię...":
+            # Wybór z inteligentnej listy
+            wybrana_opcja = st.selectbox("Kategoria", options=opcje_do_wyboru, key="org_kategoria_select")
+            # Jeśli wybrano "Stwórz nową", pokazujemy pole tekstowe
+            if wybrana_opcja == "➕ Stwórz nową kategorię...":
                 st.text_input("Wpisz nazwę nowej kategorii:", key="org_kategoria_input", placeholder="np. Poprawiny")
-                
         with c_rol:
             st.text_input("Rola (np. DJ, Sala)", key="org_rola")
             
@@ -510,13 +504,12 @@ with tab2:
         
         st.button("Dodaj do budżetu", on_click=dodaj_usluge, key="btn_obsluga")
 
-    # --- FILTROWANIE ---
+    # --- 2. FILTROWANIE I TABELA ---
     st.write("---")
     st.subheader(f"💸 Lista Wydatków ({len(df_obsluga)} pozycji)")
     
-    # Do filtra też używamy pełnej listy (bez opcji "stwórz nową")
-    lista_do_filtra = [k for k in lista_do_wyboru if "➕" not in k]
-    wybrane_kategorie = st.multiselect("🔍 Filtruj po kategorii:", options=lista_do_filtra, default=[])
+    # Filtr używa tylko istniejących kategorii (bez opcji "dodaj")
+    wybrane_kategorie = st.multiselect("🔍 Filtruj po kategorii:", options=wszystkie_kategorie, default=[])
 
     # Kopia do wyświetlania
     df_org_display = df_obsluga.copy()
@@ -538,12 +531,12 @@ with tab2:
     df_org_display["Czy_Oplacone"] = df_org_display["Czy_Oplacone"].apply(napraw_booleana)
     df_org_display["Czy_Zaliczka_Oplacona"] = df_org_display["Czy_Zaliczka_Oplacona"].apply(napraw_booleana)
 
-    # Sortowanie
+    # --- SORTOWANIE (USUNIĘTA OPCJA "KATEGORIA") ---
     col_sort1, col_sort2 = st.columns([1, 3])
     with col_sort1: st.write("**Sortuj wg:**")
     with col_sort2:
         tryb_finanse = st.radio("Sortowanie Finansów",
-            options=["Domyślnie", "📂 Kategoria", "💰 Najdroższe", "❌ Nieopłacone", "✅ Opłacone", "❌ Brak Zaliczki", "✅ Zaliczka Opłacona"],
+            options=["Domyślnie", "💰 Najdroższe", "❌ Nieopłacone", "✅ Opłacone", "❌ Brak Zaliczki", "✅ Zaliczka Opłacona"],
             label_visibility="collapsed", horizontal=True, key="sort_finanse")
 
     if tryb_finanse == "💰 Najdroższe": df_org_display = df_org_display.sort_values(by="Koszt", ascending=False)
@@ -551,15 +544,13 @@ with tab2:
     elif tryb_finanse == "✅ Opłacone": df_org_display = df_org_display.sort_values(by="Czy_Oplacone", ascending=False)
     elif tryb_finanse == "❌ Brak Zaliczki": df_org_display = df_org_display.sort_values(by="Czy_Zaliczka_Oplacona", ascending=True)
     elif tryb_finanse == "✅ Zaliczka Opłacona": df_org_display = df_org_display.sort_values(by="Czy_Zaliczka_Oplacona", ascending=False)
-    elif tryb_finanse == "📂 Kategoria": df_org_display = df_org_display.sort_values(by="Kategoria", ascending=True)
-
-    # EDYTOR
+    
+    # EDYTOR (Używa wszystkich kategorii w dropdownie tabeli)
     edytowane_obsluga = st.data_editor(
         df_org_display,
         num_rows="dynamic",
         column_config={
-            # Tutaj też używamy dynamicznej listy do edycji wewnątrz tabeli!
-            "Kategoria": st.column_config.SelectboxColumn("Kategoria", options=lista_do_filtra, required=True, width="medium"),
+            "Kategoria": st.column_config.SelectboxColumn("Kategoria", options=wszystkie_kategorie, required=True, width="medium"),
             "Rola": st.column_config.TextColumn("Rola / Usługa", required=True),
             "Informacje": st.column_config.TextColumn("Kontakt / Info", width="medium"),
             "Koszt": st.column_config.NumberColumn("Koszt (Całość)", format="%d zł", step=100),
@@ -572,6 +563,7 @@ with tab2:
         key="editor_obsluga"
     )
 
+    # ZAPISYWANIE
     if st.button("💾 Zapisz zmiany", key="save_obsluga"):
         df_to_save_org = edytowane_obsluga.copy()
         if not df_to_save_org.empty:
@@ -584,7 +576,7 @@ with tab2:
         st.success("Zapisano budżet!")
         st.rerun()
 
-    # PODSUMOWANIE (Liczone zawsze dla wszystkich)
+    # PODSUMOWANIE
     if not df_obsluga.empty:
         df_calc = df_obsluga.copy()
         df_calc["Koszt"] = pd.to_numeric(df_calc["Koszt"], errors='coerce').fillna(0.0)
@@ -605,11 +597,9 @@ with tab2:
         
         pozostalo = total_koszt - wydano
         k1, k2, k3 = st.columns(3)
-        k1.metric("Łączny budżet (Całość)", f"{total_koszt:,.0f} zł".replace(",", " "))
+        k1.metric("Łączny budżet", f"{total_koszt:,.0f} zł".replace(",", " "))
         k2.metric("Już zapłacono", f"{wydano:,.0f} zł".replace(",", " "))
         k3.metric("Pozostało do zapłaty", f"{pozostalo:,.0f} zł".replace(",", " "), delta=f"-{pozostalo} zł", delta_color="inverse")
-
-
 # ==========================
 
 # ZAKŁADKA 3: LISTA ZADAŃ (TO-DO)
