@@ -57,7 +57,7 @@ tab1, tab2 = st.tabs(["👥 Lista Gości", "🎧 Obsługa i Koszty"])
 with tab1:
     st.header("Zarządzanie Gośćmi")
 
-    # --- 0. Funkcja obsługująca kliknięcie DODAJ (Górny Formularz) ---
+    # --- 0. Funkcja obsługująca kliknięcie DODAJ ---
     def obsluga_dodawania():
         imie_glowne = st.session_state.get("input_imie", "")
         imie_partnera = st.session_state.get("input_partner", "")
@@ -67,7 +67,6 @@ with tab1:
         if imie_glowne:
             rsvp_text = "Tak" if czy_rsvp else "Nie"
             
-            # Dodajemy do arkusza (to pozwoli od razu zobaczyć wynik po odświeżeniu)
             zapisz_nowy_wiersz(worksheet_goscie, [imie_glowne, "", rsvp_text])
             
             if czy_z_osoba and imie_partnera:
@@ -75,7 +74,6 @@ with tab1:
             
             st.toast(f"✅ Dodano: {imie_glowne}")
             
-            # Reset formularza
             st.session_state["input_imie"] = ""
             st.session_state["input_partner"] = ""
             st.session_state["check_rsvp"] = False
@@ -90,11 +88,10 @@ with tab1:
         st.error("Błąd danych z Google Sheets.")
         st.stop()
     
-    # Zabezpieczenie: Jeśli arkusz jest pusty, tworzymy pustą ramkę danych
     if df_goscie.empty:
         df_goscie = pd.DataFrame(columns=["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP"])
 
-    # --- 1. Formularz Dodawania (Szybki) ---
+    # --- 1. Formularz Dodawania ---
     with st.expander("➕ Szybkie dodawanie (Formularz)", expanded=False):
         czy_z_osoba = st.checkbox("Chcę dodać też osobę towarzyszącą (+1)", key="check_plusone")
         c1, c2 = st.columns(2)
@@ -106,34 +103,49 @@ with tab1:
         st.checkbox("Potwierdzenie Przybycia", key="check_rsvp")
         st.button("Dodaj do listy", on_click=obsluga_dodawania)
 
-    # --- 2. Główna Tabela (Pełna edycja) ---
+    # --- 2. Główna Tabela ---
     st.write("---")
     st.subheader(f"📋 Lista Gości ({len(df_goscie)} pozycji)")
-    st.info("💡 Kliknij nagłówek kolumny, aby posortować. Użyj + na dole tabeli, aby dodać wiersz ręcznie.")
+    
+    # Usunąłem st.info o plusie, zgodnie z życzeniem.
 
-    # PRZYGOTOWANIE DANYCH (Kluczowe dla sortowania!)
+    # --- PRZYGOTOWANIE DANYCH DO SORTOWANIA ---
     df_display = df_goscie.copy()
     
-    # 1. Wymuszamy, że kolumny tekstowe są na pewno tekstem (str), a puste to pusty napis
+    # 1. Konwersja tekstów: Zamieniamy wszystkie "nulle" i liczby na tekst (string)
+    # To jest kluczowe dla sortowania alfabetycznego!
     df_display["Imie_Nazwisko"] = df_display["Imie_Nazwisko"].astype(str).replace("nan", "")
     df_display["Imie_Osoby_Tow"] = df_display["Imie_Osoby_Tow"].astype(str).replace("nan", "")
 
-    # 2. Konwersja RSVP na Boolean (True/False) dla checkboxów
-    # Używamy mapowania, które jest bezpieczniejsze dla sortowania
-    df_display["RSVP"] = df_display["RSVP"].apply(lambda x: True if str(x).lower() in ["tak", "true", "1"] else False)
+    # 2. Konwersja RSVP na logiczny (True/False)
+    # Dzięki temu sortowanie dzieli na: Zaznaczone vs Niezaznaczone
+    def parsuj_rsvp(wartosc):
+        s = str(wartosc).lower().strip()
+        return s in ["tak", "true", "1", "yes"]
 
-    # EDYTOR
+    df_display["RSVP"] = df_display["RSVP"].apply(parsuj_rsvp)
+
+    # EDYTOR DANYCH
     edytowane_goscie = st.data_editor(
         df_display,
-        num_rows="dynamic", # Włącza: Dodawanie (+), Usuwanie (Kosz)
+        num_rows="dynamic", # Plus i Kosz są aktywne
         column_config={
-            "Imie_Nazwisko": st.column_config.TextColumn("Imię i Nazwisko", required=True),
-            "Imie_Osoby_Tow": st.column_config.TextColumn("Info (+1) / Powiązanie"),
-            "RSVP": st.column_config.CheckboxColumn("Potwierdzenie Przybycia")
+            "Imie_Nazwisko": st.column_config.TextColumn(
+                "Imię i Nazwisko", 
+                required=True,
+                width="medium"
+            ),
+            "Imie_Osoby_Tow": st.column_config.TextColumn(
+                "Info (+1) / Powiązanie",
+                width="large"
+            ),
+            "RSVP": st.column_config.CheckboxColumn(
+                "Potwierdzenie Przybycia",
+                default=False
+            )
         },
         use_container_width=True,
-        # Ukrywamy indeks (0,1,2), żeby było ładniej, usuwanie nadal działa po zaznaczeniu wiersza
-        hide_index=False, 
+        hide_index=True, # Ukryłem indeks (0,1,2), żeby było czyściej. Usuwanie nadal działa (zaznacz wiersz).
         key="editor_goscie"
     )
 
@@ -141,25 +153,23 @@ with tab1:
     if st.button("💾 Zapisz wszystkie zmiany (Tabela)"):
         df_to_save = edytowane_goscie.copy()
         
-        # 1. Usuwamy całkowicie puste wiersze (jeśli ktoś kliknął + i zostawił puste)
+        # Usuwamy puste wiersze (zabezpieczenie przed pustym plusem)
         df_to_save = df_to_save[df_to_save["Imie_Nazwisko"].str.strip() != ""]
         
-        # 2. Konwersja z powrotem na Tak/Nie
+        # Konwersja RSVP z powrotem na Tak/Nie
         df_to_save["RSVP"] = df_to_save["RSVP"].apply(lambda x: "Tak" if x else "Nie")
         
-        # 3. Zastępowanie NaN (Brak danych) pustymi stringami, żeby Google Sheets nie zgłupiał
+        # Zastępowanie braków danych
         df_to_save = df_to_save.fillna("")
         
-        # 4. Wysyłka
         aktualizuj_caly_arkusz(worksheet_goscie, df_to_save)
-        
-        st.success("Zapisano zmiany w Google Sheets!")
+        st.success("Zapisano zmiany!")
         st.rerun()
 
-    # Statystyki na dole
+    # Statystyki
     if not df_goscie.empty:
         potwierdzone = df_goscie[df_goscie["RSVP"].astype(str) == "Tak"]
-        st.info(f"Gości na liście: {len(df_goscie)} | Potwierdziło przybycie: {len(potwierdzone)}")
+        st.metric("Liczba gości", f"{len(df_goscie)}", delta=f"{len(potwierdzone)} potwierdzonych")
         
 # ==========================
 # ZAKŁADKA 2: OBSŁUGA
