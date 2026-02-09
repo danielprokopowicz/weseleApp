@@ -5,6 +5,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 from datetime import date
 import matplotlib.pyplot as plt
 import altair as alt
+import numpy as np
 
 # --- STAŁE ---
 LISTA_KATEGORII_BAZA = [
@@ -28,9 +29,16 @@ def polacz_z_arkuszem():
         sheet = client.open("Wesele_Baza")
         return sheet
     except Exception as e:
-        st.error(f"Nie znaleziono arkusza 'Wesele_Baza'. Upewnij się, że nazwa jest poprawna i udostępniłeś go mailowi robota.")
+        st.error(f"⚠️ Nie znaleziono arkusza 'Wesele_Baza'. Upewnij się, że nazwa jest poprawna i udostępniłeś go mailowi robota.")
         st.stop()
-
+    try:
+        worksheet_stoly = sh.worksheet("Stoly")
+    except:
+        worksheet_stoly = None
+        st.warning("⚠️ Brakuje zakładki 'Stoly' w Arkuszu Google! Utwórz ją z nagłówkami: Numer, Ksztalt, Liczba_Miejsc, Goscie_Lista")
+except Exception as e:
+    st.error(f"Błąd arkusza: {e}.")
+    st.stop()
 # Inicjalizacja połączenia
 try:
     sh = polacz_z_arkuszem()
@@ -533,3 +541,212 @@ with tab3:
         st.progress(procent, text=f"Postęp prac: {zrobione}/{total} zadań ({procent}%)")
         if procent == 100:
             st.balloons()
+# ==========================
+# ZAKŁADKA 4: STOŁY (NOWA)
+# ==========================
+with tab4:
+    st.header("🍽️ Rozsadzanie Gości przy Stołach")
+
+    # 1. Pobieramy dane stołów
+    try:
+        df_stoly = pobierz_dane(worksheet_stoly)
+    except Exception as e:
+        st.error("Problem z zakładką 'Stoly'. Sprawdź czy istnieje.")
+        st.stop()
+
+    # Zabezpieczenie kolumn
+    cols_stoly = ["Numer", "Ksztalt", "Liczba_Miejsc", "Goscie_Lista"]
+    if df_stoly.empty:
+        df_stoly = pd.DataFrame(columns=cols_stoly)
+    
+    for c in cols_stoly:
+        if c not in df_stoly.columns: df_stoly[c] = ""
+
+    # Konwersja danych
+    df_stoly["Numer"] = df_stoly["Numer"].astype(str)
+    df_stoly["Liczba_Miejsc"] = pd.to_numeric(df_stoly["Liczba_Miejsc"], errors='coerce').fillna(0).astype(int)
+
+    # --- KOLUMNA LEWA: LISTA I DODAWANIE ---
+    col_left, col_right = st.columns([1, 2])
+
+    with col_left:
+        st.subheader("➕ Dodaj Stół")
+        with st.form("dodaj_stol_form"):
+            nr_stolu = st.text_input("Numer/Nazwa Stołu", placeholder="np. Stół 1 lub Wiejski")
+            ksztalt = st.selectbox("Kształt", ["Okrągły", "Prostokątny"])
+            miejsca = st.number_input("Liczba Miejsc", min_value=1, max_value=24, value=8)
+            submitted = st.form_submit_button("Dodaj Stół")
+            
+            if submitted and nr_stolu:
+                # Goscie_Lista to będzie string z imionami oddzielonymi średnikiem
+                pusta_lista = ";".join(["" for _ in range(miejsca)])
+                zapisz_nowy_wiersz(worksheet_stoly, [nr_stolu, ksztalt, miejsca, pusta_lista])
+                st.toast(f"Dodano stół: {nr_stolu}")
+                st.rerun()
+
+        st.write("---")
+        st.subheader("📋 Lista Stołów")
+        
+        # Wybór stołu do edycji
+        if not df_stoly.empty:
+            list_of_tables = df_stoly["Numer"].tolist()
+            wybrany_stol_id = st.radio("Wybierz stół do edycji:", list_of_tables)
+        else:
+            wybrany_stol_id = None
+            st.info("Brak stołów. Dodaj pierwszy!")
+
+    # --- KOLUMNA PRAWA: EDYCJA I WIZUALIZACJA ---
+    with col_right:
+        if wybrany_stol_id:
+            st.subheader(f"Edycja: {wybrany_stol_id}")
+            
+            # Pobieramy dane wybranego stołu
+            row = df_stoly[df_stoly["Numer"] == wybrany_stol_id].iloc[0]
+            max_miejsc = int(row["Liczba_Miejsc"])
+            ksztalt_stolu = row["Ksztalt"]
+            
+            # Parsowanie listy gości (rozdzielone średnikami)
+            obecni_goscie_str = str(row["Goscie_Lista"])
+            if ";" in obecni_goscie_str:
+                lista_gosci = obecni_goscie_str.split(";")
+            else:
+                # Fallback jeśli format jest pusty lub inny
+                lista_gosci = [""] * max_miejsc
+            
+            # Upewnij się, że lista ma odpowiednią długość (jakby ktoś zmienił liczbę miejsc)
+            if len(lista_gosci) < max_miejsc:
+                lista_gosci += [""] * (max_miejsc - len(lista_gosci))
+            lista_gosci = lista_gosci[:max_miejsc]
+
+            # --- FORMULARZ ROZSADZANIA ---
+            with st.expander("📝 Przypisz gości do miejsc", expanded=True):
+                nowa_lista_gosci = []
+                # Tworzymy inputy w dwóch kolumnach dla oszczędności miejsca
+                c_a, c_b = st.columns(2)
+                
+                for i in range(max_miejsc):
+                    col_to_use = c_a if i % 2 == 0 else c_b
+                    with col_to_use:
+                        # Wpisujemy aktualnego gościa jako value
+                        val = st.text_input(f"Miejsce {i+1}", value=lista_gosci[i], key=f"seat_{wybrany_stol_id}_{i}")
+                        nowa_lista_gosci.append(val)
+                
+                if st.button("💾 Zapisz układ stołu"):
+                    # Sklejamy listę z powrotem w string
+                    zapis_string = ";".join(nowa_lista_gosci)
+                    
+                    # Znajdujemy indeks wiersza w Google Sheets
+                    # df index + 2 (bo header to 1, a gspread liczy od 1)
+                    idx = df_stoly[df_stoly["Numer"] == wybrany_stol_id].index[0] + 2
+                    
+                    # Aktualizujemy komórkę D (Goscie_Lista to 4. kolumna)
+                    worksheet_stoly.update_cell(idx, 4, zapis_string)
+                    st.cache_data.clear() # Czyścimy cache
+                    st.success("Zapisano gości!")
+                    st.rerun()
+
+            # --- WIZUALIZACJA (RYSOWANIE) ---
+            st.write("---")
+            st.write(f"**Podgląd: {ksztalt_stolu} ({max_miejsc} os.)**")
+            
+            fig, ax = plt.subplots(figsize=(6, 6))
+            ax.set_aspect('equal')
+            ax.axis('off') # Ukrywamy osie
+
+            # Kolory
+            table_color = '#e0e0e0' # Szary
+            seat_color = '#4CAF50' # Zielony
+            text_color = 'black'
+
+            if ksztalt_stolu == "Okrągły":
+                # Rysujemy stół (koło)
+                circle = plt.Circle((0, 0), 0.6, color=table_color, ec='black')
+                ax.add_artist(circle)
+                ax.text(0, 0, wybrany_stol_id, ha='center', va='center', fontsize=12, fontweight='bold')
+
+                # Rysujemy miejsca dookoła
+                for i in range(max_miejsc):
+                    angle = 2 * np.pi * i / max_miejsc
+                    x = 0.85 * np.cos(angle)
+                    y = 0.85 * np.sin(angle)
+                    
+                    # Kropka miejsca
+                    seat = plt.Circle((x, y), 0.1, color=seat_color, alpha=0.7)
+                    ax.add_artist(seat)
+                    
+                    # Nazwisko gościa (rotacja tekstu dla czytelności)
+                    guest_name = nowa_lista_gosci[i] # Bierzemy z inputów (live update) lub z bazy
+                    
+                    # Przesunięcie tekstu na zewnątrz
+                    text_x = 1.1 * np.cos(angle)
+                    text_y = 1.1 * np.sin(angle)
+                    
+                    rot = np.degrees(angle)
+                    # Obracamy tekst żeby był czytelny (lewa strona vs prawa)
+                    if 90 < rot < 270:
+                        rot += 180
+                        ha = 'right'
+                    else:
+                        ha = 'left'
+
+                    if guest_name:
+                        ax.text(text_x, text_y, guest_name, ha=ha, va='center', rotation=rot, fontsize=9)
+                    else:
+                        ax.text(text_x, text_y, str(i+1), ha=ha, va='center', rotation=rot, fontsize=8, color='grey')
+
+                ax.set_xlim(-1.5, 1.5)
+                ax.set_ylim(-1.5, 1.5)
+
+            elif ksztalt_stolu == "Prostokątny":
+                # Rysujemy prostokąt
+                rect = plt.Rectangle((-0.5, -1), 1, 2, color=table_color, ec='black')
+                ax.add_artist(rect)
+                ax.text(0, 0, wybrany_stol_id, ha='center', va='center', rotation=90, fontsize=12, fontweight='bold')
+
+                # Dzielimy miejsca na dwie strony: lewa i prawa
+                # (Dla uproszczenia: połowa po lewej, połowa po prawej)
+                side_count = (max_miejsc + 1) // 2
+                
+                for i in range(max_miejsc):
+                    guest_name = nowa_lista_gosci[i]
+                    
+                    if i < side_count:
+                        # Lewa strona
+                        x = -0.7
+                        # Rozkładamy równomiernie w pionie od -0.8 do 0.8
+                        y = np.linspace(-0.8, 0.8, side_count)[i]
+                        ha = 'right'
+                    else:
+                        # Prawa strona
+                        x = 0.7
+                        y = np.linspace(-0.8, 0.8, max_miejsc - side_count)[i - side_count]
+                        ha = 'left'
+
+                    # Kropka
+                    seat = plt.Circle((x if x>0 else x+0.1, y), 0.1, color=seat_color, alpha=0.7)
+                    # (drobna korekta pozycji kropki względem stołu)
+                    if i < side_count: seat.center = (-0.6, y)
+                    else: seat.center = (0.6, y)
+                    
+                    ax.add_artist(seat)
+
+                    if guest_name:
+                        ax.text(x, y, guest_name, ha=ha, va='center', fontsize=9)
+                    else:
+                        ax.text(x, y, str(i+1), ha=ha, va='center', fontsize=8, color='grey')
+
+                ax.set_xlim(-1.5, 1.5)
+                ax.set_ylim(-1.5, 1.5)
+
+            # Wyświetlamy wykres
+            st.pyplot(fig, use_container_width=True)
+            
+            # Przycisk usunięcia stołu
+            st.write("---")
+            if st.button("🗑️ Usuń ten stół"):
+                # Znajdź indeks i usuń
+                idx = df_stoly[df_stoly["Numer"] == wybrany_stol_id].index[0] + 2
+                worksheet_stoly.delete_rows(idx)
+                st.cache_data.clear()
+                st.warning("Usunięto stół!")
+                st.rerun()
