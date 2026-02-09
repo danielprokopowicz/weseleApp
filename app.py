@@ -388,7 +388,7 @@ with tab3:
         with c2:
             st.date_input("Termin wykonania", value=date.today(), key="todo_data")
         
-        st.button("Dodaj do listy", on_click=dodaj_zadanie)
+        st.button("Dodaj do listy", on_click=dodaj_zadanie, key="btn_zadania")
 
     # --- 2. Tabela Zadań ---
     st.write("---")
