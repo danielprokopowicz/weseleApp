@@ -229,7 +229,6 @@ with tab2:
         st.error("Błąd danych. Sprawdź nagłówki w zakładce Obsluga.")
         st.stop()
 
-    # Jeśli tabela jest pusta, tworzymy strukturę
     if df_obsluga.empty:
         df_obsluga = pd.DataFrame(columns=["Rola", "Informacje", "Koszt", "Czy_Oplacone", "Zaliczka", "Czy_Zaliczka_Oplacona"])
 
@@ -251,23 +250,43 @@ with tab2:
     st.write("---")
     st.subheader(f"💸 Lista Wydatków ({len(df_obsluga)} pozycji)")
 
-    # --- CZYSZCZENIE DANYCH (To naprawia Twój błąd!) ---
+    # PRZYGOTOWANIE DANYCH
     df_org_display = df_obsluga.copy()
 
-    # 1. Wymuszamy typy liczbowe (zamieniamy puste i błędy na 0.0)
+    # Czyszczenie typów danych (niezbędne dla sortowania i edycji)
     df_org_display["Koszt"] = pd.to_numeric(df_org_display["Koszt"], errors='coerce').fillna(0.0)
     df_org_display["Zaliczka"] = pd.to_numeric(df_org_display["Zaliczka"], errors='coerce').fillna(0.0)
+    df_org_display["Rola"] = df_org_display["Rola"].astype(str).replace("nan", "")
+    df_org_display["Informacje"] = df_org_display["Informacje"].astype(str).replace("nan", "")
 
-    # 2. Wymuszamy typy logiczne (True/False) dla checkboxów
     def napraw_booleana(x):
         return str(x).lower().strip() in ["tak", "true", "1", "yes"]
 
     df_org_display["Czy_Oplacone"] = df_org_display["Czy_Oplacone"].apply(napraw_booleana)
     df_org_display["Czy_Zaliczka_Oplacona"] = df_org_display["Czy_Zaliczka_Oplacona"].apply(napraw_booleana)
 
-    # 3. Zabezpieczenie tekstów (zamiana None na pusty string)
-    df_org_display["Rola"] = df_org_display["Rola"].astype(str).replace("nan", "")
-    df_org_display["Informacje"] = df_org_display["Informacje"].astype(str).replace("nan", "")
+    # --- SORTOWANIE (Nowość w tej zakładce) ---
+    col_sort1, col_sort2 = st.columns([1, 3])
+    with col_sort1:
+        st.write("**Sortuj wg:**")
+    with col_sort2:
+        tryb_finanse = st.radio(
+            "Sortowanie Finansów",
+            options=["Domyślnie", "💰 Najdroższe na górze", "❌ Nieopłacone na górze", "✅ Opłacone na górze", "🔤 Rola (A-Z)"],
+            label_visibility="collapsed",
+            horizontal=True,
+            key="sort_finanse"
+        )
+
+    # Logika sortowania
+    if tryb_finanse == "💰 Najdroższe na górze":
+        df_org_display = df_org_display.sort_values(by="Koszt", ascending=False)
+    elif tryb_finanse == "❌ Nieopłacone na górze":
+        df_org_display = df_org_display.sort_values(by="Czy_Oplacone", ascending=True) # False (nieopłacone) jest "mniejsze" niż True
+    elif tryb_finanse == "✅ Opłacone na górze":
+        df_org_display = df_org_display.sort_values(by="Czy_Oplacone", ascending=False)
+    elif tryb_finanse == "🔤 Rola (A-Z)":
+        df_org_display = df_org_display.sort_values(by="Rola", ascending=True)
 
     # EDYTOR
     edytowana_obsluga = st.data_editor(
@@ -290,14 +309,13 @@ with tab2:
     if st.button("💾 Zapisz zmiany (Budżet)"):
         df_to_save_org = edytowana_obsluga.copy()
         
-        # Usuwamy puste wiersze (zabezpieczenie przed plusem)
+        # Usuwanie pustych
         df_to_save_org = df_to_save_org[df_to_save_org["Rola"].str.strip() != ""]
         
         # Konwersja Bool -> Tak/Nie
         df_to_save_org["Czy_Oplacone"] = df_to_save_org["Czy_Oplacone"].apply(lambda x: "Tak" if x else "Nie")
         df_to_save_org["Czy_Zaliczka_Oplacona"] = df_to_save_org["Czy_Zaliczka_Oplacona"].apply(lambda x: "Tak" if x else "Nie")
         
-        # Zabezpieczenie przed dziwnymi wartościami (NaN)
         df_to_save_org = df_to_save_org.fillna("")
 
         aktualizuj_caly_arkusz(worksheet_obsluga, df_to_save_org)
