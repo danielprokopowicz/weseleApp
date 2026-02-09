@@ -107,7 +107,7 @@ except Exception as e:
 
 
 # --- FUNKCJE POMOCNICZE ---
-
+@st.cache_data(ttl=600)
 def pobierz_dane(_worksheet):
 
     dane = _worksheet.get_all_records()
