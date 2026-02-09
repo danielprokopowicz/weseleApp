@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from datetime import date
 
 # --- KONFIGURACJA STRONY ---
 st.set_page_config(page_title="Menadżer Ślubny", page_icon="💍", layout="wide")
