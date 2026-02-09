@@ -29,7 +29,11 @@ try:
     sh = polacz_z_arkuszem()
     worksheet_goscie = sh.worksheet("Goscie")
     worksheet_obsluga = sh.worksheet("Obsluga")
-    worksheet_zadania = sh.worksheet("Zadania")
+    try:
+        worksheet_zadania = sh.worksheet("Zadania")
+    except:
+        worksheet_zadania = None
+        st.warning("⚠️ Brakuje zakładki 'Zadania' w Arkuszu Google! Stwórz ją, aby lista zadań działała.")
 except Exception as e:
     st.error(f"Błąd arkusza: {e}. Sprawdź czy zakładki nazywają się 'Goscie' i 'Obsluga' oraz czy Wiersz 1 zawiera nagłówki bez pustych pól!")
     st.stop()
