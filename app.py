@@ -422,9 +422,10 @@ with tab2:
             if col == "Kategoria": df_obsluga[col] = "Inne"
 
     # --- LOGIKA DYNAMICZNYCH KATEGORII ---
-    # Definiujemy bazę lokalnie
     baza_kategorii = [
-        "Inne"
+        "Sala i Jedzenie", "Muzyka i Oprawa", "Foto i Video", 
+        "Stroje i Obrączki", "Dekoracje i Kwiaty", "Transport i Nocleg", 
+        "Formalności", "Inne"
     ]
     
     if not df_obsluga.empty:
@@ -495,7 +496,8 @@ with tab2:
     st.write("---")
     st.subheader(f"💸 Lista Wydatków ({len(df_obsluga)} pozycji)")
     
-    wybrane_kategorie = st.multiselect("🔍 Filtruj po kategorii:", options=wszystkie_kategorie, default=[])
+    lista_do_filtra = wszystkie_kategorie
+    wybrane_kategorie = st.multiselect("🔍 Filtruj po kategorii:", options=lista_do_filtra, default=[])
 
     df_org_display = df_obsluga.copy()
 
@@ -556,7 +558,7 @@ with tab2:
         st.success("Zapisano budżet!")
         st.rerun()
 
-    # --- PODSUMOWANIE I WYKRESY ---
+    # --- PODSUMOWANIE I WYKRESY (ZMODYFIKOWANE) ---
     if not df_obsluga.empty:
         df_calc = df_obsluga.copy()
         df_calc["Koszt"] = pd.to_numeric(df_calc["Koszt"], errors='coerce').fillna(0.0)
@@ -567,7 +569,6 @@ with tab2:
         
         st.write("---")
         
-        # Obliczenia do metryk
         total_koszt = df_calc["Koszt"].sum()
         wydano = 0.0
         for index, row in df_calc.iterrows():
@@ -579,34 +580,51 @@ with tab2:
         pozostalo = total_koszt - wydano
         
         k1, k2, k3 = st.columns(3)
-        k1.metric("Łączny budżet (Całość)", f"{total_koszt:,.0f} zł".replace(",", " "))
+        k1.metric("Łączny budżet", f"{total_koszt:,.0f} zł".replace(",", " "))
         k2.metric("Już zapłacono", f"{wydano:,.0f} zł".replace(",", " "))
-        k3.metric("Pozostało do zapłaty", f"{pozostalo:,.0f} zł".replace(",", " "), delta=f"-{pozostalo} zł", delta_color="inverse")
+        k3.metric("Pozostało", f"{pozostalo:,.0f} zł".replace(",", " "), delta=f"-{pozostalo} zł", delta_color="inverse")
 
         # --- WYKRESY ---
         st.write("---")
-        st.subheader("📊 Wykresy Wydatków")
+        st.subheader("📊 Struktura Wydatków")
 
-        # 1. Wykres łącznych kosztów na kategorię
-        # Grupujemy po kategorii i sumujemy koszty
-        koszty_wg_kategorii = df_calc.groupby("Kategoria")["Koszt"].sum().sort_values(ascending=False)
-        
-        col_chart1, col_chart2 = st.columns(2)
-        
-        with col_chart1:
-            st.write("**Łączne wydatki wg kategorii (zł)**")
-            st.bar_chart(koszty_wg_kategorii)
+        # Przygotowanie danych do wykresów (grupowanie po kategorii)
+        koszty_wg_kategorii = df_calc.groupby("Kategoria")["Koszt"].sum().reset_index()
+        # Sortujemy malejąco
+        koszty_wg_kategorii = koszty_wg_kategorii.sort_values(by="Koszt", ascending=False)
+        # Usuwamy kategorie z kosztem 0 (żeby nie zaśmiecały wykresu)
+        koszty_wg_kategorii = koszty_wg_kategorii[koszty_wg_kategorii["Koszt"] > 0]
 
-        # 2. Wykres: Ile już zapłacono vs Ile zostało (dla każdej kategorii)
-        with col_chart2:
-            st.write("**Status płatności wg kategorii**")
-            # Obliczamy kolumny pomocnicze dla wykresu
-            df_calc["Zapłacono"] = df_calc.apply(lambda x: x["Koszt"] if x["Czy_Oplacone_Bool"] else (x["Zaliczka"] if x["Czy_Zaliczka_Bool"] else 0.0), axis=1)
-            df_calc["DoZapłaty"] = df_calc["Koszt"] - df_calc["Zapłacono"]
+        if not koszty_wg_kategorii.empty:
+            col_bar, col_pie = st.columns([3, 2])
             
-            # Grupujemy i wybieramy tylko dwie kolumny do wyświetlenia
-            wykres_status = df_calc.groupby("Kategoria")[["Zapłacono", "DoZapłaty"]].sum()
-            st.bar_chart(wykres_status)
+            with col_bar:
+                st.write("**Ile wydajemy na co? (w zł)**")
+                # Wykres słupkowy (Bar Chart) - wbudowany w Streamlit
+                st.bar_chart(koszty_wg_kategorii.set_index("Kategoria"), color="#FF4B4B")
+
+            with col_pie:
+                st.write("**Udział procentowy w torcie**")
+                # Wykres kołowy (Pie Chart) - używamy Matplotlib (standard w Pythonie)
+                import matplotlib.pyplot as plt
+                
+                # Konfiguracja wykresu kołowego
+                fig, ax = plt.subplots(figsize=(5, 5))
+                ax.pie(
+                    koszty_wg_kategorii["Koszt"], 
+                    labels=koszty_wg_kategorii["Kategoria"], 
+                    autopct='%1.1f%%', 
+                    startangle=90,
+                    textprops={'fontsize': 10}
+                )
+                ax.axis('equal') # Żeby koło było kołem
+                
+                # Przeźroczyste tło, żeby pasowało do Streamlit (Dark/Light mode)
+                fig.patch.set_alpha(0)
+                
+                st.pyplot(fig)
+        else:
+            st.info("Dodaj koszty, aby zobaczyć wykresy.")
 # ==========================
 
 # ZAKŁADKA 3: LISTA ZADAŃ (TO-DO)
