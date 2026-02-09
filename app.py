@@ -34,29 +34,39 @@ except Exception as e:
     st.error(f"Błąd arkusza: {e}. Sprawdź nazwy zakładek!")
     st.stop()
 
-# --- FUNKCJE POMOCNICZE ---
+# --- FUNKCJE POMOCNICZE (Poprawione) ---
 
-# TU JEST POPRAWKA NA SZYBKOŚĆ (TTL=5 sekund)
 @st.cache_data(ttl=5)
 def pobierz_dane(_worksheet):
-    # _worksheet z podkreślnikiem, żeby Streamlit nie próbował go haszować
     if _worksheet is None:
         return pd.DataFrame()
-    dane = _worksheet.get_all_records()
-    df = pd.DataFrame(dane)
-    # ZABEZPIECZENIE: Usuwamy spacje z nazw kolumn (np. "Koszt " -> "Koszt")
-    if not df.empty:
-        df.columns = df.columns.str.strip()
+    
+    # ZMIANA: Używamy get_all_values() zamiast get_all_records()
+    # To pozwala pobrać same nagłówki, nawet jak nie ma danych pod spodem.
+    wszystkie_dane = _worksheet.get_all_values()
+    
+    if not wszystkie_dane:
+        return pd.DataFrame()
+    
+    # Pierwszy wiersz to nagłówki
+    naglowki = wszystkie_dane[0]
+    # Reszta to dane (może być pusta lista)
+    wiersze = wszystkie_dane[1:]
+    
+    df = pd.DataFrame(wiersze, columns=naglowki)
+    
+    # Czyścimy spacje w nazwach kolumn
+    df.columns = df.columns.str.strip()
     return df
 
 def zapisz_nowy_wiersz(worksheet, lista_wartosci):
     worksheet.append_row(lista_wartosci)
-    st.cache_data.clear() # Czyścimy pamięć po dodaniu, żeby od razu widzieć zmianę
+    st.cache_data.clear()
 
 def aktualizuj_caly_arkusz(worksheet, df):
     worksheet.clear()
     worksheet.update([df.columns.values.tolist()] + df.values.tolist())
-    st.cache_data.clear() # Czyścimy pamięć po edycji
+    st.cache_data.clear()
 
 # --- UI APLIKACJI ---
 st.title("💍 Menadżer Ślubny")
@@ -84,7 +94,6 @@ with tab1:
                 zapisz_nowy_wiersz(worksheet_goscie, [partner, f"(Osoba tow. dla: {imie})", r_txt, i_txt])
             
             st.toast(f"✅ Dodano: {imie}")
-            # Reset
             st.session_state["input_imie"] = ""
             st.session_state["input_partner"] = ""
             st.session_state["check_rsvp"] = False
@@ -99,11 +108,9 @@ with tab1:
         st.error(f"Błąd danych Goście: {e}")
         st.stop()
     
-    if df_goscie.empty:
-        df_goscie = pd.DataFrame(columns=["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP", "Zaproszenie_Wyslane"])
-    
-    # Zabezpieczenie przed brakiem kolumn
-    for col in ["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP", "Zaproszenie_Wyslane"]:
+    # Jeśli DataFrame jest pusty lub brakuje kolumn, dodajemy je ręcznie
+    wymagane_kolumny_g = ["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP", "Zaproszenie_Wyslane"]
+    for col in wymagane_kolumny_g:
         if col not in df_goscie.columns:
             df_goscie[col] = ""
 
@@ -124,24 +131,25 @@ with tab1:
     st.subheader(f"📋 Lista Gości ({len(df_goscie)})")
 
     df_display = df_goscie.copy()
-    # Konwersja danych do edycji
-    df_display["Imie_Nazwisko"] = df_display["Imie_Nazwisko"].astype(str).replace("nan", "")
-    df_display["Imie_Osoby_Tow"] = df_display["Imie_Osoby_Tow"].astype(str).replace("nan", "")
-    
-    def to_bool(x): return str(x).lower() in ["tak", "true", "1", "yes"]
-    df_display["RSVP"] = df_display["RSVP"].apply(to_bool)
-    df_display["Zaproszenie_Wyslane"] = df_display["Zaproszenie_Wyslane"].apply(to_bool)
+    if not df_display.empty:
+        df_display["Imie_Nazwisko"] = df_display["Imie_Nazwisko"].astype(str).replace("nan", "")
+        df_display["Imie_Osoby_Tow"] = df_display["Imie_Osoby_Tow"].astype(str).replace("nan", "")
+        
+        def to_bool(x): return str(x).lower() in ["tak", "true", "1", "yes"]
+        df_display["RSVP"] = df_display["RSVP"].apply(to_bool)
+        df_display["Zaproszenie_Wyslane"] = df_display["Zaproszenie_Wyslane"].apply(to_bool)
 
-    # Sortowanie
-    c_s1, c_s2 = st.columns([1,3])
-    with c_s1: st.write("Sortuj wg:")
-    with c_s2:
-        sort_g = st.radio("Sort", ["Domyślnie", "✉️ Wysłane", "✉️ Brak", "✅ RSVP", "🔤 A-Z"], horizontal=True, label_visibility="collapsed", key="sort_g")
+        c_s1, c_s2 = st.columns([1,3])
+        with c_s1: st.write("Sortuj wg:")
+        with c_s2:
+            sort_g = st.radio("Sort", ["Domyślnie", "✉️ Wysłane", "✉️ Brak", "✅ RSVP", "🔤 A-Z"], horizontal=True, label_visibility="collapsed", key="sort_g")
 
-    if sort_g == "✉️ Wysłane": df_display = df_display.sort_values("Zaproszenie_Wyslane", ascending=False)
-    elif sort_g == "✉️ Brak": df_display = df_display.sort_values("Zaproszenie_Wyslane", ascending=True)
-    elif sort_g == "✅ RSVP": df_display = df_display.sort_values("RSVP", ascending=False)
-    elif sort_g == "🔤 A-Z": df_display = df_display.sort_values("Imie_Nazwisko", ascending=True)
+        if sort_g == "✉️ Wysłane": df_display = df_display.sort_values("Zaproszenie_Wyslane", ascending=False)
+        elif sort_g == "✉️ Brak": df_display = df_display.sort_values("Zaproszenie_Wyslane", ascending=True)
+        elif sort_g == "✅ RSVP": df_display = df_display.sort_values("RSVP", ascending=False)
+        elif sort_g == "🔤 A-Z": df_display = df_display.sort_values("Imie_Nazwisko", ascending=True)
+    else:
+        st.info("Lista gości jest pusta.")
 
     edytowane_goscie = st.data_editor(
         df_display, num_rows="dynamic", use_container_width=True, key="editor_goscie", hide_index=True,
@@ -155,12 +163,13 @@ with tab1:
 
     if st.button("💾 Zapisz zmiany (Goście)", key="save_goscie"):
         to_save = edytowane_goscie.copy()
-        to_save = to_save[to_save["Imie_Nazwisko"].str.strip() != ""]
-        to_save["RSVP"] = to_save["RSVP"].apply(lambda x: "Tak" if x else "Nie")
-        to_save["Zaproszenie_Wyslane"] = to_save["Zaproszenie_Wyslane"].apply(lambda x: "Tak" if x else "Nie")
-        aktualizuj_caly_arkusz(worksheet_goscie, to_save)
-        st.success("Zapisano!")
-        st.rerun()
+        if not to_save.empty:
+            to_save = to_save[to_save["Imie_Nazwisko"].str.strip() != ""]
+            to_save["RSVP"] = to_save["RSVP"].apply(lambda x: "Tak" if x else "Nie")
+            to_save["Zaproszenie_Wyslane"] = to_save["Zaproszenie_Wyslane"].apply(lambda x: "Tak" if x else "Nie")
+            aktualizuj_caly_arkusz(worksheet_goscie, to_save)
+            st.success("Zapisano!")
+            st.rerun()
 
     if not df_goscie.empty:
         stat_rsvp = len(df_goscie[df_goscie["RSVP"].apply(str).str.lower() == "tak"])
@@ -192,7 +201,6 @@ with tab2:
                 "Tak" if zal_opl else "Nie"
             ])
             st.toast(f"💰 Dodano: {rola}")
-            # Reset
             for k in ["org_rola", "org_info", "org_koszt", "org_oplacone", "org_zaliczka_kwota", "org_zaliczka_oplacona"]:
                 if k in st.session_state: del st.session_state[k]
         else:
@@ -204,17 +212,18 @@ with tab2:
         st.error(f"Błąd danych Obsługa: {e}")
         st.stop()
 
-    # ZABEZPIECZENIE PRZED BRAKIEM KOLUMN (Twój błąd KeyError)
+    # ZABEZPIECZENIE: Jeśli pobrało pusty DF (bo pusta tabela), to nie ma kolumn.
+    # Wtedy tworzymy je ręcznie.
     wymagane_kolumny = ["Rola", "Informacje", "Koszt", "Czy_Oplacone", "Zaliczka", "Czy_Zaliczka_Oplacona"]
-    if df_obsluga.empty:
+    
+    # Jeśli brakuje kolumn (nawet jednej), to znaczy że coś jest nie tak z odczytem pustego arkusza
+    brakujace = [col for col in wymagane_kolumny if col not in df_obsluga.columns]
+    
+    if brakujace:
+        # Jeśli brakuje kolumn, to prawdopodobnie arkusz jest pusty (ma tylko nagłówki), 
+        # a get_all_values() zadziałało, ale musimy być pewni.
+        # W tym momencie po prostu nadpisujemy strukturę poprawną listą kolumn.
         df_obsluga = pd.DataFrame(columns=wymagane_kolumny)
-    else:
-        # Sprawdzamy czy kolumny istnieją. Jeśli nie - pokazujemy błąd zamiast crasha
-        brakujace = [col for col in wymagane_kolumny if col not in df_obsluga.columns]
-        if brakujace:
-            st.error(f"🚨 BŁĄD ARKUSZA: Brakuje kolumn: {brakujace}. Sprawdź nagłówki w Google Sheets (zakładka Obsluga)!")
-            st.write("Aktualnie widoczne kolumny:", df_obsluga.columns.tolist())
-            st.stop()
 
     with st.expander("➕ Dodaj koszt", expanded=False):
         c1, c2 = st.columns(2)
@@ -232,25 +241,29 @@ with tab2:
     st.subheader(f"💸 Wydatki ({len(df_obsluga)})")
 
     df_org = df_obsluga.copy()
-    # Konwersja
-    df_org["Koszt"] = pd.to_numeric(df_org["Koszt"], errors='coerce').fillna(0.0)
-    df_org["Zaliczka"] = pd.to_numeric(df_org["Zaliczka"], errors='coerce').fillna(0.0)
-    df_org["Rola"] = df_org["Rola"].astype(str).replace("nan", "")
-    df_org["Informacje"] = df_org["Informacje"].astype(str).replace("nan", "")
-    df_org["Czy_Oplacone"] = df_org["Czy_Oplacone"].apply(to_bool)
-    df_org["Czy_Zaliczka_Oplacona"] = df_org["Czy_Zaliczka_Oplacona"].apply(to_bool)
+    if not df_org.empty:
+        df_org["Koszt"] = pd.to_numeric(df_org["Koszt"], errors='coerce').fillna(0.0)
+        df_org["Zaliczka"] = pd.to_numeric(df_org["Zaliczka"], errors='coerce').fillna(0.0)
+        df_org["Rola"] = df_org["Rola"].astype(str).replace("nan", "")
+        df_org["Informacje"] = df_org["Informacje"].astype(str).replace("nan", "")
+        
+        def to_bool(x): return str(x).lower() in ["tak", "true", "1", "yes"]
+        df_org["Czy_Oplacone"] = df_org["Czy_Oplacone"].apply(to_bool)
+        df_org["Czy_Zaliczka_Oplacona"] = df_org["Czy_Zaliczka_Oplacona"].apply(to_bool)
 
-    c_s1, c_s2 = st.columns([1,3])
-    with c_s1: st.write("Sortuj wg:")
-    with c_s2:
-        sort_o = st.radio("Sort", ["Domyślnie", "💰 Najdroższe", "❌ Nieopłacone", "✅ Opłacone", "❌ Brak Zaliczki", "✅ Zaliczka OK", "🔤 A-Z"], horizontal=True, label_visibility="collapsed", key="sort_o")
+        c_s1, c_s2 = st.columns([1,3])
+        with c_s1: st.write("Sortuj wg:")
+        with c_s2:
+            sort_o = st.radio("Sort", ["Domyślnie", "💰 Najdroższe", "❌ Nieopłacone", "✅ Opłacone", "❌ Brak Zaliczki", "✅ Zaliczka OK", "🔤 A-Z"], horizontal=True, label_visibility="collapsed", key="sort_o")
 
-    if sort_o == "💰 Najdroższe": df_org = df_org.sort_values("Koszt", ascending=False)
-    elif sort_o == "❌ Nieopłacone": df_org = df_org.sort_values("Czy_Oplacone", ascending=True)
-    elif sort_o == "✅ Opłacone": df_org = df_org.sort_values("Czy_Oplacone", ascending=False)
-    elif sort_o == "❌ Brak Zaliczki": df_org = df_org.sort_values("Czy_Zaliczka_Oplacona", ascending=True)
-    elif sort_o == "✅ Zaliczka OK": df_org = df_org.sort_values("Czy_Zaliczka_Oplacona", ascending=False)
-    elif sort_o == "🔤 A-Z": df_org = df_org.sort_values("Rola", ascending=True)
+        if sort_o == "💰 Najdroższe": df_org = df_org.sort_values("Koszt", ascending=False)
+        elif sort_o == "❌ Nieopłacone": df_org = df_org.sort_values("Czy_Oplacone", ascending=True)
+        elif sort_o == "✅ Opłacone": df_org = df_org.sort_values("Czy_Oplacone", ascending=False)
+        elif sort_o == "❌ Brak Zaliczki": df_org = df_org.sort_values("Czy_Zaliczka_Oplacona", ascending=True)
+        elif sort_o == "✅ Zaliczka OK": df_org = df_org.sort_values("Czy_Zaliczka_Oplacona", ascending=False)
+        elif sort_o == "🔤 A-Z": df_org = df_org.sort_values("Rola", ascending=True)
+    else:
+        st.info("Brak wydatków.")
 
     edytowana_org = st.data_editor(
         df_org, num_rows="dynamic", use_container_width=True, key="editor_obsluga", hide_index=True,
@@ -265,12 +278,13 @@ with tab2:
 
     if st.button("💾 Zapisz zmiany (Budżet)", key="save_obsluga"):
         to_save = edytowana_org.copy()
-        to_save = to_save[to_save["Rola"].str.strip() != ""]
-        to_save["Czy_Oplacone"] = to_save["Czy_Oplacone"].apply(lambda x: "Tak" if x else "Nie")
-        to_save["Czy_Zaliczka_Oplacona"] = to_save["Czy_Zaliczka_Oplacona"].apply(lambda x: "Tak" if x else "Nie")
-        aktualizuj_caly_arkusz(worksheet_obsluga, to_save)
-        st.success("Zapisano!")
-        st.rerun()
+        if not to_save.empty:
+            to_save = to_save[to_save["Rola"].str.strip() != ""]
+            to_save["Czy_Oplacone"] = to_save["Czy_Oplacone"].apply(lambda x: "Tak" if x else "Nie")
+            to_save["Czy_Zaliczka_Oplacona"] = to_save["Czy_Zaliczka_Oplacona"].apply(lambda x: "Tak" if x else "Nie")
+            aktualizuj_caly_arkusz(worksheet_obsluga, to_save)
+            st.success("Zapisano!")
+            st.rerun()
     
     if not df_org.empty:
         total = df_org["Koszt"].sum()
@@ -305,8 +319,9 @@ with tab3:
     except:
         df_todo = pd.DataFrame(columns=["Zadanie", "Termin", "Czy_Zrobione"])
     
-    if df_todo.empty:
-         df_todo = pd.DataFrame(columns=["Zadanie", "Termin", "Czy_Zrobione"])
+    kolumny_todo = ["Zadanie", "Termin", "Czy_Zrobione"]
+    for col in kolumny_todo:
+        if col not in df_todo.columns: df_todo[col] = ""
 
     with st.expander("➕ Dodaj zadanie", expanded=False):
         c1, c2 = st.columns([2,1])
@@ -316,19 +331,20 @@ with tab3:
 
     st.write("---")
     df_td = df_todo.copy()
-    df_td["Zadanie"] = df_td["Zadanie"].astype(str).replace("nan", "")
-    df_td["Termin"] = pd.to_datetime(df_td["Termin"], errors='coerce').dt.date
-    df_td["Czy_Zrobione"] = df_td["Czy_Zrobione"].apply(to_bool)
+    if not df_td.empty:
+        df_td["Zadanie"] = df_td["Zadanie"].astype(str).replace("nan", "")
+        df_td["Termin"] = pd.to_datetime(df_td["Termin"], errors='coerce').dt.date
+        df_td["Czy_Zrobione"] = df_td["Czy_Zrobione"].apply(lambda x: str(x).lower() in ["tak", "true", "1", "yes"])
 
-    c_s1, c_s2 = st.columns([1,3])
-    with c_s1: st.write("Sortuj wg:")
-    with c_s2:
-        sort_t = st.radio("Sort", ["Data", "Do zrobienia", "Zrobione", "A-Z"], horizontal=True, label_visibility="collapsed", key="sort_t")
-    
-    if sort_t == "Data": df_td = df_td.sort_values("Termin")
-    elif sort_t == "Do zrobienia": df_td = df_td.sort_values("Czy_Zrobione", ascending=True)
-    elif sort_t == "Zrobione": df_td = df_td.sort_values("Czy_Zrobione", ascending=False)
-    elif sort_t == "A-Z": df_td = df_td.sort_values("Zadanie")
+        c_s1, c_s2 = st.columns([1,3])
+        with c_s1: st.write("Sortuj wg:")
+        with c_s2:
+            sort_t = st.radio("Sort", ["Data", "Do zrobienia", "Zrobione", "A-Z"], horizontal=True, label_visibility="collapsed", key="sort_t")
+        
+        if sort_t == "Data": df_td = df_td.sort_values("Termin")
+        elif sort_t == "Do zrobienia": df_td = df_td.sort_values("Czy_Zrobione", ascending=True)
+        elif sort_t == "Zrobione": df_td = df_td.sort_values("Czy_Zrobione", ascending=False)
+        elif sort_t == "A-Z": df_td = df_td.sort_values("Zadanie")
 
     edytowane_todo = st.data_editor(
         df_td, num_rows="dynamic", use_container_width=True, key="editor_todo", hide_index=True,
@@ -341,12 +357,13 @@ with tab3:
 
     if st.button("💾 Zapisz (Zadania)", key="save_todo"):
         to_save = edytowane_todo.copy()
-        to_save = to_save[to_save["Zadanie"].str.strip() != ""]
-        to_save["Termin"] = pd.to_datetime(to_save["Termin"]).dt.strftime("%Y-%m-%d")
-        to_save["Czy_Zrobione"] = to_save["Czy_Zrobione"].apply(lambda x: "Tak" if x else "Nie")
-        aktualizuj_caly_arkusz(worksheet_zadania, to_save)
-        st.success("Zapisano!")
-        st.rerun()
+        if not to_save.empty:
+            to_save = to_save[to_save["Zadanie"].str.strip() != ""]
+            to_save["Termin"] = pd.to_datetime(to_save["Termin"]).dt.strftime("%Y-%m-%d")
+            to_save["Czy_Zrobione"] = to_save["Czy_Zrobione"].apply(lambda x: "Tak" if x else "Nie")
+            aktualizuj_caly_arkusz(worksheet_zadania, to_save)
+            st.success("Zapisano!")
+            st.rerun()
 
     if not df_td.empty:
         done = len(df_td[df_td["Czy_Zrobione"]])
