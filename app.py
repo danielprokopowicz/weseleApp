@@ -8,6 +8,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 from datetime import date
 import matplotlib.pyplot as plt
+import altair as alt
 
 # --- STAŁE ---
 LISTA_KATEGORII_BAZA = [
@@ -585,42 +586,89 @@ with tab2:
         k3.metric("Pozostało", f"{pozostalo:,.0f} zł".replace(",", " "), delta=f"-{pozostalo} zł", delta_color="inverse")
 
         # --- WYKRESY ---
+        if not df_obsluga.empty:
+        df_calc = df_obsluga.copy()
+        df_calc["Koszt"] = pd.to_numeric(df_calc["Koszt"], errors='coerce').fillna(0.0)
+        df_calc["Zaliczka"] = pd.to_numeric(df_calc["Zaliczka"], errors='coerce').fillna(0.0)
+        def fix_bool(x): return str(x).lower().strip() in ["tak", "true", "1", "yes"]
+        df_calc["Czy_Oplacone_Bool"] = df_calc["Czy_Oplacone"].apply(fix_bool)
+        df_calc["Czy_Zaliczka_Bool"] = df_calc["Czy_Zaliczka_Oplacona"].apply(fix_bool)
+        
+        st.write("---")
+        
+        total_koszt = df_calc["Koszt"].sum()
+        wydano = 0.0
+        for index, row in df_calc.iterrows():
+            if row["Czy_Oplacone_Bool"]:
+                wydano += row["Koszt"]
+            elif row["Czy_Zaliczka_Bool"]:
+                wydano += row["Zaliczka"]
+        
+        pozostalo = total_koszt - wydano
+        
+        k1, k2, k3 = st.columns(3)
+        k1.metric("Łączny budżet (Całość)", f"{total_koszt:,.0f} zł".replace(",", " "))
+        k2.metric("Już zapłacono", f"{wydano:,.0f} zł".replace(",", " "))
+        k3.metric("Pozostało do zapłaty", f"{pozostalo:,.0f} zł".replace(",", " "), delta=f"-{pozostalo} zł", delta_color="inverse")
+
+        # --- WYKRESY (NOWA WERSJA) ---
         st.write("---")
         st.subheader("📊 Struktura Wydatków")
 
-        # Przygotowanie danych do wykresów (grupowanie po kategorii)
+        # Przygotowanie danych
         koszty_wg_kategorii = df_calc.groupby("Kategoria")["Koszt"].sum().reset_index()
-        # Sortujemy malejąco
         koszty_wg_kategorii = koszty_wg_kategorii.sort_values(by="Koszt", ascending=False)
-        # Usuwamy kategorie z kosztem 0 (żeby nie zaśmiecały wykresu)
         koszty_wg_kategorii = koszty_wg_kategorii[koszty_wg_kategorii["Koszt"] > 0]
 
         if not koszty_wg_kategorii.empty:
-            col_bar, col_pie = st.columns([3, 2])
+            # 1. WYKRES SŁUPKOWY (Altair - różne kolory)
+            st.write("**Ile wydajemy na co? (w zł)**")
             
-            with col_bar:
-                st.write("**Ile wydajemy na co? (w zł)**")
-                # Wykres słupkowy (Bar Chart) - wbudowany w Streamlit
-                st.bar_chart(koszty_wg_kategorii.set_index("Kategoria"), color="#FF4B4B")
+            # Używamy Altair dla lepszej kontroli kolorów
+            chart_bar = alt.Chart(koszty_wg_kategorii).mark_bar().encode(
+                x=alt.X('Koszt', title='Kwota (zł)'),
+                y=alt.Y('Kategoria', sort='-x', title='Kategoria'), # Sortowanie malejąco
+                color=alt.Color('Kategoria', legend=None), # Różne kolory dla kategorii, bez legendy (bo jest opis na osi Y)
+                tooltip=['Kategoria', alt.Tooltip('Koszt', format=',.0f')] # Dymek po najechaniu
+            ).properties(
+                height=300 # Wysokość wykresu
+            ).interactive()
+            
+            st.altair_chart(chart_bar, use_container_width=True)
 
-            with col_pie:
-                st.write("**Udział procentowy w torcie**")
-                
-                # Konfiguracja wykresu kołowego
-                fig, ax = plt.subplots(figsize=(5, 5))
-                ax.pie(
-                    koszty_wg_kategorii["Koszt"], 
-                    labels=koszty_wg_kategorii["Kategoria"], 
-                    autopct='%1.1f%%', 
-                    startangle=90,
-                    textprops={'fontsize': 10}
-                )
-                ax.axis('equal') # Żeby koło było kołem
-                
-                # Przeźroczyste tło, żeby pasowało do Streamlit (Dark/Light mode)
-                fig.patch.set_alpha(0)
-                
-                st.pyplot(fig)
+            st.write("---") # Separator między wykresami
+
+            # 2. WYKRES KOŁOWY (Matplotlib - białe napisy, pod spodem)
+            st.write("**Udział procentowy w torcie**")
+            
+            # Konfiguracja wykresu kołowego w Matplotlib
+            # Ustawiamy ciemne tło dla figury, żeby białe napisy były widoczne w edytorze
+            fig, ax = plt.subplots(figsize=(6, 6))
+            
+            # Rysujemy wykres i pobieramy obiekty tekstowe (wedges, texts, autotexts)
+            wedges, texts, autotexts = ax.pie(
+                koszty_wg_kategorii["Koszt"], 
+                labels=koszty_wg_kategorii["Kategoria"], 
+                autopct='%1.1f%%', 
+                startangle=90,
+                textprops={'color':"white", 'fontsize': 10} # Wstępne ustawienie białego koloru
+            )
+            
+            # Dodatkowe wymuszenie białego koloru i pogrubienia dla procentów
+            plt.setp(autotexts, size=10, weight="bold", color="white")
+            plt.setp(texts, size=10, color="white")
+
+            ax.axis('equal') # Żeby koło było kołem
+            
+            # Przeźroczyste tło figury i osi, żeby pasowało do Streamlit
+            fig.patch.set_alpha(0)
+            ax.patch.set_alpha(0)
+            
+            # Wyświetlamy wykres kołowy, wyśrodkowany
+            col_centered_pie = st.columns([1, 2, 1])
+            with col_centered_pie[1]:
+                 st.pyplot(fig, use_container_width=True)
+
         else:
             st.info("Dodaj koszty, aby zobaczyć wykresy.")
 # ==========================
