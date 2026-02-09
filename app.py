@@ -88,10 +88,11 @@ with tab1:
             st.warning("Musisz wpisać imię głównego gościa!")
 
     # Pobieranie danych
+# Pobieranie danych
     try:
         df_goscie = pobierz_dane(worksheet_goscie)
     except Exception as e:
-        st.error("Błąd danych z Google Sheets.")
+        st.error(f"Błąd w zakładce GOŚCIE: {e}")  # <--- TO POKAŻE PRAWDZIWY BŁĄD
         st.stop()
     
     if df_goscie.empty:
