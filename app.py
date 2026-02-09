@@ -69,46 +69,64 @@ with tab1:
         imie_partnera = st.session_state.get("input_partner", "")
         czy_rsvp = st.session_state.get("check_rsvp", False)
         czy_z_osoba = st.session_state.get("check_plusone", False)
+        # NOWE POLE:
+        czy_zaproszenie = st.session_state.get("check_invite", False)
 
         if imie_glowne:
             rsvp_text = "Tak" if czy_rsvp else "Nie"
+            invite_text = "Tak" if czy_zaproszenie else "Nie" # Tekst dla arkusza
             
-            zapisz_nowy_wiersz(worksheet_goscie, [imie_glowne, "", rsvp_text])
+            # Dodajemy 4 wartości: Imię, Osoba Tow, RSVP, Zaproszenie
+            zapisz_nowy_wiersz(worksheet_goscie, [imie_glowne, "", rsvp_text, invite_text])
             
             if czy_z_osoba and imie_partnera:
-                zapisz_nowy_wiersz(worksheet_goscie, [imie_partnera, f"(Osoba tow. dla: {imie_glowne})", rsvp_text])
+                zapisz_nowy_wiersz(worksheet_goscie, [imie_partnera, f"(Osoba tow. dla: {imie_glowne})", rsvp_text, invite_text])
             
             st.toast(f"✅ Dodano: {imie_glowne}")
             
+            # Reset pól
             st.session_state["input_imie"] = ""
             st.session_state["input_partner"] = ""
             st.session_state["check_rsvp"] = False
             st.session_state["check_plusone"] = False
+            st.session_state["check_invite"] = False # Resetujemy też nowe pole
         else:
             st.warning("Musisz wpisać imię głównego gościa!")
 
     # Pobieranie danych
-# Pobieranie danych
     try:
         df_goscie = pobierz_dane(worksheet_goscie)
     except Exception as e:
-        st.error(f"Błąd w zakładce GOŚCIE: {e}")  # <--- TO POKAŻE PRAWDZIWY BŁĄD
+        st.error(f"Błąd w zakładce GOŚCIE: {e}. Sprawdź czy dodałeś kolumnę 'Zaproszenie_Wyslane' w D1.")
         st.stop()
     
+    # Jeśli arkusz jest pusty lub nowy, tworzymy strukturę
     if df_goscie.empty:
-        df_goscie = pd.DataFrame(columns=["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP"])
+        df_goscie = pd.DataFrame(columns=["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP", "Zaproszenie_Wyslane"])
+
+    # Zabezpieczenie na wypadek gdybyś dodał kolumnę w Excelu, ale Pandas jej nie widział (np. brak danych)
+    if "Zaproszenie_Wyslane" not in df_goscie.columns:
+        df_goscie["Zaproszenie_Wyslane"] = "Nie"
 
     # --- 1. Formularz Dodawania ---
     with st.expander("➕ Szybkie dodawanie (Formularz)", expanded=False):
         czy_z_osoba = st.checkbox("Chcę dodać też osobę towarzyszącą (+1)", key="check_plusone")
+        
         c1, c2 = st.columns(2)
         with c1:
             st.text_input("Imię i Nazwisko Gościa", key="input_imie")
         with c2:
             if czy_z_osoba:
                 st.text_input("Imię Osoby Towarzyszącej", key="input_partner")
-        st.checkbox("Potwierdzenie Przybycia", key="check_rsvp")
-        st.button("Dodaj do listy", on_click=obsluga_dodawania)
+        
+        # Checkboxy w dwóch kolumnach dla estetyki
+        k1, k2 = st.columns(2)
+        with k1:
+            st.checkbox("✉️ Zaproszenie wysłane?", key="check_invite")
+        with k2:
+            st.checkbox("✅ Potwierdzenie Przybycia (RSVP)", key="check_rsvp")
+        
+        st.button("Dodaj do listy", on_click=obsluga_dodawania, key="btn_goscie")
 
     # --- 2. Główna Tabela ---
     st.write("---")
@@ -117,36 +135,37 @@ with tab1:
     # --- PRZYGOTOWANIE DANYCH ---
     df_display = df_goscie.copy()
     
-    # Konwersja na bezpieczne typy (String i Boolean)
+    # Konwersja tekstów
     df_display["Imie_Nazwisko"] = df_display["Imie_Nazwisko"].astype(str).replace("nan", "")
     df_display["Imie_Osoby_Tow"] = df_display["Imie_Osoby_Tow"].astype(str).replace("nan", "")
 
-    # Funkcja pomocnicza do RSVP
-    def parsuj_rsvp(wartosc):
+    # Funkcja pomocnicza Tak/Nie -> True/False
+    def parsuj_bool(wartosc):
         return str(wartosc).lower() in ["tak", "true", "1", "yes"]
     
-    df_display["RSVP"] = df_display["RSVP"].apply(parsuj_rsvp)
+    df_display["RSVP"] = df_display["RSVP"].apply(parsuj_bool)
+    df_display["Zaproszenie_Wyslane"] = df_display["Zaproszenie_Wyslane"].apply(parsuj_bool)
 
-    # --- NOWOŚĆ: RĘCZNE SORTOWANIE ---
-    # Dodajemy opcje wyboru nad tabelą
+    # --- RĘCZNE SORTOWANIE ---
     col_sort1, col_sort2 = st.columns([1, 3])
     with col_sort1:
         st.write("**Sortuj wg:**")
     with col_sort2:
         tryb_sortowania = st.radio(
-            "Wybierz tryb sortowania", # Etykieta (ukryta)
-            options=["Domyślnie (Kolejność dodania)", "✅ Potwierdzone na górze", "❌ Niepotwierdzone na górze", "🔤 Nazwisko (A-Z)"],
-            label_visibility="collapsed", # Ukrywa napis "Wybierz tryb..." żeby było ładniej
-            horizontal=True
+            "Wybierz tryb sortowania",
+            options=["Domyślnie", "✉️ Wysłane zaproszenia", "✉️ Brak zaproszenia", "✅ Potwierdzone RSVP", "🔤 Nazwisko (A-Z)"],
+            label_visibility="collapsed",
+            horizontal=True,
+            key="sort_goscie_radio"
         )
 
-    # Logika sortowania (wykonywana w Pythonie, więc niezawodna)
-    if tryb_sortowania == "✅ Potwierdzone na górze":
-        # Sortujemy malejąco (True jest wyżej niż False)
+    # Logika sortowania
+    if tryb_sortowania == "✉️ Wysłane zaproszenia":
+        df_display = df_display.sort_values(by="Zaproszenie_Wyslane", ascending=False)
+    elif tryb_sortowania == "✉️ Brak zaproszenia":
+        df_display = df_display.sort_values(by="Zaproszenie_Wyslane", ascending=True)
+    elif tryb_sortowania == "✅ Potwierdzone RSVP":
         df_display = df_display.sort_values(by="RSVP", ascending=False)
-    elif tryb_sortowania == "❌ Niepotwierdzone na górze":
-        # Sortujemy rosnąco (False jest wyżej niż True)
-        df_display = df_display.sort_values(by="RSVP", ascending=True)
     elif tryb_sortowania == "🔤 Nazwisko (A-Z)":
         df_display = df_display.sort_values(by="Imie_Nazwisko", ascending=True)
 
@@ -155,19 +174,10 @@ with tab1:
         df_display,
         num_rows="dynamic",
         column_config={
-            "Imie_Nazwisko": st.column_config.TextColumn(
-                "Imię i Nazwisko", 
-                required=True,
-                width="medium"
-            ),
-            "Imie_Osoby_Tow": st.column_config.TextColumn(
-                "Info (+1) / Powiązanie",
-                width="large"
-            ),
-            "RSVP": st.column_config.CheckboxColumn(
-                "Potwierdzenie Przybycia",
-                default=False
-            )
+            "Imie_Nazwisko": st.column_config.TextColumn("Imię i Nazwisko", required=True),
+            "Imie_Osoby_Tow": st.column_config.TextColumn("Info (+1) / Powiązanie", width="large"),
+            "Zaproszenie_Wyslane": st.column_config.CheckboxColumn("✉️ Wysłane?", default=False),
+            "RSVP": st.column_config.CheckboxColumn("✅ RSVP", default=False)
         },
         use_container_width=True,
         hide_index=True,
@@ -175,14 +185,15 @@ with tab1:
     )
 
     # ZAPISYWANIE
-    if st.button("💾 Zapisz wszystkie zmiany"):
+    if st.button("💾 Zapisz wszystkie zmiany (Goście)"):
         df_to_save = edytowane_goscie.copy()
         
         # Usuwanie pustych wierszy
         df_to_save = df_to_save[df_to_save["Imie_Nazwisko"].str.strip() != ""]
         
-        # Konwersja RSVP z powrotem na Tak/Nie
+        # Konwersja True/False -> Tak/Nie
         df_to_save["RSVP"] = df_to_save["RSVP"].apply(lambda x: "Tak" if x else "Nie")
+        df_to_save["Zaproszenie_Wyslane"] = df_to_save["Zaproszenie_Wyslane"].apply(lambda x: "Tak" if x else "Nie")
         
         # Zastępowanie braków danych
         df_to_save = df_to_save.fillna("")
@@ -194,7 +205,12 @@ with tab1:
     # Statystyki
     if not df_goscie.empty:
         potwierdzone = df_goscie[df_goscie["RSVP"].astype(str) == "Tak"]
-        st.metric("Liczba gości", f"{len(df_goscie)}", delta=f"{len(potwierdzone)} potwierdzonych")
+        zaproszone = df_goscie[df_goscie["Zaproszenie_Wyslane"].astype(str) == "Tak"]
+        
+        k1, k2, k3 = st.columns(3)
+        k1.metric("Liczba gości", f"{len(df_goscie)}")
+        k2.metric("Wysłane zaproszenia", f"{len(zaproszone)}")
+        k3.metric("Potwierdzone RSVP", f"{len(potwierdzone)}")
         
 # ==========================
 # ZAKŁADKA 2: ORGANIZACJA I BUDŻET
