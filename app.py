@@ -10,7 +10,7 @@ from datetime import date
 
 
 # --- STAŁE ---
-LISTA_KATEGORII = [
+LISTA_KATEGORII_BAZA = [
     "Sala i Jedzenie", "Muzyka i Oprawa", "Foto i Video", 
     "Stroje i Obrączki", "Dekoracje i Kwiaty", "Transport i Nocleg", 
     "Formalności", "Inne"
