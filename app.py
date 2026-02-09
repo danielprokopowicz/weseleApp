@@ -31,14 +31,7 @@ def polacz_z_arkuszem():
     except Exception as e:
         st.error(f"⚠️ Nie znaleziono arkusza 'Wesele_Baza'. Upewnij się, że nazwa jest poprawna i udostępniłeś go mailowi robota.")
         st.stop()
-    try:
-        worksheet_stoly = sh.worksheet("Stoly")
-    except:
-        worksheet_stoly = None
-        st.warning("⚠️ Brakuje zakładki 'Stoly' w Arkuszu Google! Utwórz ją z nagłówkami: Numer, Ksztalt, Liczba_Miejsc, Goscie_Lista")
-    except Exception as e:
-        st.error(f"Błąd arkusza: {e}.")
-        st.stop()
+        
 # Inicjalizacja połączenia
 try:
     sh = polacz_z_arkuszem()
@@ -49,8 +42,14 @@ try:
     except:
         worksheet_zadania = None
         st.warning("⚠️ Brakuje zakładki 'Zadania' w Arkuszu Google! Stwórz ją, aby lista zadań działała.")
+    try:
+        worksheet_stoly = sh.worksheet("Stoly")
+    except:
+        worksheet_stoly = None
+        st.warning("⚠️ Brakuje zakładki 'Stoly' w Arkuszu Google! Utwórz ją z nagłówkami: Numer, Ksztalt, Liczba_Miejsc, Goscie_Lista")
+        
 except Exception as e:
-    st.error(f"Błąd arkusza: {e}. Sprawdź czy zakładki nazywają się 'Goscie' i 'Obsluga' oraz czy Wiersz 1 zawiera nagłówki bez pustych pól!")
+    st.error(f"Błąd arkusza: {e}.")
     st.stop()
 
 # --- FUNKCJE POMOCNICZE ---
