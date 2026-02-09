@@ -42,7 +42,7 @@ except Exception as e:
 @st.cache_data(ttl=5)
 def pobierz_dane(_worksheet):
     dane = _worksheet.get_all_records()
-    return pd.DataFrame(dane
+    return pd.DataFrame(dane)
 
 def zapisz_nowy_wiersz(worksheet, lista_wartosci):
     worksheet.append_row(lista_wartosci)
