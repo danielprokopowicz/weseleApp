@@ -424,9 +424,7 @@ with tab2:
     # --- LOGIKA DYNAMICZNYCH KATEGORII ---
     # Definiujemy bazę lokalnie, jeśli nie ma jej w globalnych
     baza_kategorii = [
-        "Sala i Jedzenie", "Muzyka i Oprawa", "Foto i Video", 
-        "Stroje i Obrączki", "Dekoracje i Kwiaty", "Transport i Nocleg", 
-        "Formalności", "Inne"
+  "Inne"
     ]
     
     if not df_obsluga.empty:
