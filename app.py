@@ -58,7 +58,6 @@ with tab1:
     st.header("Zarządzanie Gośćmi")
 
     # --- 0. Funkcja obsługująca kliknięcie (Callback) ---
-    # Ta funkcja wykonuje się PRZED przeładowaniem strony
     def obsluga_dodawania():
         imie_glowne = st.session_state.get("input_imie", "")
         imie_partnera = st.session_state.get("input_partner", "")
@@ -66,17 +65,18 @@ with tab1:
         czy_z_osoba = st.session_state.get("check_plusone", False)
 
         if imie_glowne:
+            # Zapisujemy jako "Tak"/"Nie" do Google Sheets
             rsvp_text = "Tak" if czy_rsvp else "Nie"
             
-            # 1. Dodajemy głównego gościa
+            # 1. Główny gość
             zapisz_nowy_wiersz(worksheet_goscie, [imie_glowne, "", rsvp_text])
             st.toast(f"✅ Dodano: {imie_glowne}")
 
-            # 2. Dodajemy osobę towarzyszącą (jeśli zaznaczono)
+            # 2. Osoba towarzysząca
             if czy_z_osoba and imie_partnera:
                 zapisz_nowy_wiersz(worksheet_goscie, [imie_partnera, f"(Osoba tow. dla: {imie_glowne})", rsvp_text])
             
-            # 3. Bezpieczne czyszczenie formularza
+            # 3. Reset
             st.session_state["input_imie"] = ""
             st.session_state["input_partner"] = ""
             st.session_state["check_rsvp"] = False
@@ -105,26 +105,28 @@ with tab1:
             if czy_z_osoba:
                 st.text_input("Imię Osoby Towarzyszącej", key="input_partner")
 
-        st.checkbox("Czy potwierdzili przybycie (RSVP)?", key="check_rsvp")
+        # ZMIANA NAZWY TUTAJ (W formularzu)
+        st.checkbox("Potwierdzenie Przybycia", key="check_rsvp")
         
-        # Przycisk z callbackiem
         st.button("Dodaj do listy", on_click=obsluga_dodawania)
 
     # --- 2. Tabela ---
     st.write("---")
     st.subheader(f"📋 Lista Gości ({len(df_goscie)} pozycji)")
+    st.caption("Kliknij w nagłówek kolumny 'Potwierdzenie Przybycia', aby posortować listę!")
 
     df_display = df_goscie.copy()
+    # Konwersja na True/False żeby były checkboxy (ptaszki)
     df_display["RSVP"] = df_display["RSVP"].apply(lambda x: True if str(x).lower() == "tak" else False)
 
-    # TUTAJ ZMIANA: Usunęliśmy num_rows="dynamic"
     edytowane_goscie = st.data_editor(
         df_display,
-        num_rows="fixed",  # To blokuje dodawanie/usuwanie wierszy w tabeli
+        num_rows="fixed",
         column_config={
             "Imie_Nazwisko": st.column_config.TextColumn("Imię i Nazwisko"),
             "Imie_Osoby_Tow": st.column_config.TextColumn("Info (+1)", disabled=True),
-            "RSVP": st.column_config.CheckboxColumn("RSVP")
+            # ZMIANA NAZWY TUTAJ (W tabeli)
+            "RSVP": st.column_config.CheckboxColumn("Potwierdzenie Przybycia")
         },
         use_container_width=True,
         key="editor_goscie"
@@ -132,6 +134,7 @@ with tab1:
 
     if st.button("💾 Zapisz zmiany w tabeli (Goście)"):
         df_to_save = edytowane_goscie.copy()
+        # Konwersja z powrotem na Tak/Nie dla Google Sheets
         df_to_save["RSVP"] = df_to_save["RSVP"].apply(lambda x: "Tak" if x else "Nie")
         df_to_save = df_to_save.fillna("")
         aktualizuj_caly_arkusz(worksheet_goscie, df_to_save)
