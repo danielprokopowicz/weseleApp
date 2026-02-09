@@ -107,7 +107,7 @@ except Exception as e:
 
 
 # --- FUNKCJE POMOCNICZE ---
-
+@st.cache_data(ttl=600)
 def pobierz_dane(_worksheet):
 
     dane = _worksheet.get_all_records()
@@ -916,23 +916,27 @@ with tab3:
 
             st.warning("Wpisz treść zadania!")
 
+    # 1. Pobieranie danych
     try:
-
         df_zadania = pobierz_dane(worksheet_zadania)
-
     except Exception as e:
-
         st.error("Błąd danych. Sprawdź nagłówki w zakładce Zadania.")
-
         st.stop()
 
-
-
     if df_zadania.empty:
-
         df_zadania = pd.DataFrame(columns=["Zadanie", "Termin", "Czy_Zrobione"])
 
-
+    # --- TUTAJ JEST NAPRAWA BŁĘDU KEYERROR ---
+    # Jeśli są dane, usuwamy spacje z nazw kolumn (np. "Zadanie " -> "Zadanie")
+    if not df_zadania.empty:
+        df_zadania.columns = df_zadania.columns.str.strip()
+    
+    # Sprawdzamy czy kolumny istnieją. Jak nie, to tworzymy je sztucznie.
+    wymagane_kolumny = ["Zadanie", "Termin", "Czy_Zrobione"]
+    for col in wymagane_kolumny:
+        if col not in df_zadania.columns:
+            df_zadania[col] = "" # Tworzy pustą kolumnę, żeby program się nie wywalił
+    # -----------------------------------------
 
     with st.expander("➕ Dodaj nowe zadanie", expanded=False):
 
