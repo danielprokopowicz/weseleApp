@@ -190,27 +190,133 @@ with tab1:
         st.metric("Liczba gości", f"{len(df_goscie)}", delta=f"{len(potwierdzone)} potwierdzonych")
         
 # ==========================
-# ZAKŁADKA 2: OBSŁUGA
+# ZAKŁADKA 2: ORGANIZACJA I BUDŻET
 # ==========================
 with tab2:
-    st.header("🎧 Organizacja")
-    
+    st.header("🎧 Organizacja i Budżet")
+
+    # --- 0. Funkcja Callback do dodawania (Finanse) ---
+    def dodaj_usluge():
+        # Pobieramy dane z formularza
+        rola = st.session_state.get("org_rola", "")
+        info = st.session_state.get("org_info", "")
+        koszt = st.session_state.get("org_koszt", 0.0)
+        czy_oplacone = st.session_state.get("org_oplacone", False)
+        
+        zaliczka_kwota = st.session_state.get("org_zaliczka_kwota", 0.0)
+        czy_zaliczka_oplacona = st.session_state.get("org_zaliczka_oplacona", False)
+
+        if rola:
+            # Konwersja booleana na tekst dla Google Sheets
+            txt_oplacone = "Tak" if czy_oplacone else "Nie"
+            txt_zaliczka_opl = "Tak" if czy_zaliczka_oplacona else "Nie"
+
+            # Dodajemy wiersz
+            zapisz_nowy_wiersz(worksheet_obsluga, [rola, info, koszt, txt_oplacone, zaliczka_kwota, txt_zaliczka_opl])
+            st.toast(f"💰 Dodano usługę: {rola}")
+
+            # Reset pól
+            st.session_state["org_rola"] = ""
+            st.session_state["org_info"] = ""
+            st.session_state["org_koszt"] = 0.0
+            st.session_state["org_oplacone"] = False
+            st.session_state["org_zaliczka_kwota"] = 0.0
+            st.session_state["org_zaliczka_oplacona"] = False
+        else:
+            st.warning("Musisz wpisać nazwę Roli (np. DJ, Fotograf)!")
+
+    # Pobieranie danych
     try:
         df_obsluga = pobierz_dane(worksheet_obsluga)
-    except:
-        df_obsluga = pd.DataFrame(columns=["Rola", "Firma", "Koszt", "Zaliczka"])
+    except Exception as e:
+        st.error("Błąd danych w zakładce Obsługa. Sprawdź nagłówki w Google Sheets.")
+        st.stop()
 
     if df_obsluga.empty:
-        df_obsluga = pd.DataFrame(columns=["Rola", "Firma", "Koszt", "Zaliczka"])
+        df_obsluga = pd.DataFrame(columns=["Rola", "Informacje", "Koszt", "Czy_Oplacone", "Zaliczka", "Czy_Zaliczka_Oplacona"])
+
+    # --- 1. Formularz Dodawania ---
+    with st.expander("➕ Dodaj nową usługę / koszt", expanded=False):
+        c1, c2 = st.columns(2)
+        with c1:
+            st.text_input("Rola (np. DJ, Sala)", key="org_rola")
+            st.number_input("Całkowity Koszt (zł)", min_value=0.0, step=100.0, key="org_koszt")
+            st.checkbox("Czy całość już opłacona?", key="org_oplacone")
+        with c2:
+            st.text_input("Informacje dodatkowe (Kontakt)", key="org_info")
+            st.number_input("Wymagana Zaliczka (0 jeśli brak)", min_value=0.0, step=100.0, key="org_zaliczka_kwota")
+            st.checkbox("Czy zaliczka opłacona?", key="org_zaliczka_oplacona")
+        
+        st.button("Dodaj do budżetu", on_click=dodaj_usluge)
+
+    # --- 2. Tabela Edycji ---
+    st.write("---")
+    st.subheader(f"💸 Lista Wydatków ({len(df_obsluga)} pozycji)")
+
+    # Przygotowanie danych
+    df_org_display = df_obsluga.copy()
+
+    # Konwersja na liczby (na wypadek gdyby Google Sheets zapisał to jako tekst)
+    df_org_display["Koszt"] = pd.to_numeric(df_org_display["Koszt"], errors='coerce').fillna(0)
+    df_org_display["Zaliczka"] = pd.to_numeric(df_org_display["Zaliczka"], errors='coerce').fillna(0)
+
+    # Funkcja parsująca Tak/Nie na True/False
+    def parsuj_finanse(x):
+        return str(x).lower() in ["tak", "true", "1", "yes"]
+
+    df_org_display["Czy_Oplacone"] = df_org_display["Czy_Oplacone"].apply(parsuj_finanse)
+    df_org_display["Czy_Zaliczka_Oplacona"] = df_org_display["Czy_Zaliczka_Oplacona"].apply(parsuj_finanse)
 
     edytowana_obsluga = st.data_editor(
-        df_obsluga,
+        df_org_display,
         num_rows="dynamic",
+        column_config={
+            "Rola": st.column_config.TextColumn("Rola / Usługa", required=True),
+            "Informacje": st.column_config.TextColumn("Kontakt / Info", width="medium"),
+            "Koszt": st.column_config.NumberColumn("Koszt (Całość)", format="%d zł"),
+            "Czy_Oplacone": st.column_config.CheckboxColumn("✅ Opłacone?"),
+            "Zaliczka": st.column_config.NumberColumn("Zaliczka", format="%d zł"),
+            "Czy_Zaliczka_Oplacona": st.column_config.CheckboxColumn("✅ Zaliczka wpłacona?")
+        },
         use_container_width=True,
+        hide_index=True,
         key="editor_obsluga"
     )
 
-    if st.button("💾 Zapisz zmiany (Obsługa)"):
-        aktualizuj_caly_arkusz(worksheet_obsluga, edytowana_obsluga)
-        st.success("Zapisano zmiany!")
+    # ZAPISYWANIE
+    if st.button("💾 Zapisz zmiany (Budżet)"):
+        df_to_save_org = edytowana_obsluga.copy()
+        
+        # Usuwamy puste
+        df_to_save_org = df_to_save_org[df_to_save_org["Rola"].str.strip() != ""]
+        
+        # Konwersja z powrotem na Tak/Nie
+        df_to_save_org["Czy_Oplacone"] = df_to_save_org["Czy_Oplacone"].apply(lambda x: "Tak" if x else "Nie")
+        df_to_save_org["Czy_Zaliczka_Oplacona"] = df_to_save_org["Czy_Zaliczka_Oplacona"].apply(lambda x: "Tak" if x else "Nie")
+        
+        aktualizuj_caly_arkusz(worksheet_obsluga, df_to_save_org)
+        st.success("Zapisano budżet!")
         st.rerun()
+
+    # --- 3. PODSUMOWANIE FINANSOWE (STATYSTYKI) ---
+    if not df_org_display.empty:
+        st.write("---")
+        
+        total_koszt = df_org_display["Koszt"].sum()
+        
+        # Obliczamy ile faktycznie wydano pieniędzy z portfela
+        # Jeśli całość opłacona -> bierzemy całość.
+        # Jeśli nie, ale zaliczka opłacona -> bierzemy zaliczkę.
+        wydano = 0
+        for index, row in df_org_display.iterrows():
+            if row["Czy_Oplacone"]:
+                wydano += row["Koszt"]
+            elif row["Czy_Zaliczka_Oplacona"]:
+                wydano += row["Zaliczka"]
+        
+        pozostalo = total_koszt - wydano
+
+        k1, k2, k3 = st.columns(3)
+        k1.metric("Łączny koszt wesela", f"{total_koszt:,.0f} zł".replace(",", " "))
+        k2.metric("Już zapłacono (Zaliczki + Całości)", f"{wydano:,.0f} zł".replace(",", " "))
+        k3.metric("Pozostało do zapłaty", f"{pozostalo:,.0f} zł".replace(",", " "), delta=f"-{pozostalo} zł", delta_color="inverse")
