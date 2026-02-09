@@ -39,11 +39,10 @@ except Exception as e:
     st.stop()
 
 # --- FUNKCJE POMOCNICZE ---
-def pobierz_dane(worksheet):
-    # get_all_records wymaga, aby 1. wiersz był nagłówkami i nie miał pustych komórek w środku zakresu
-    dane = worksheet.get_all_records()
+@st.cache_data(ttl=5)
+def pobierz_dane(_worksheet):
+    dane = _worksheet.get_all_records()
     return pd.DataFrame(dane)
-
 def zapisz_nowy_wiersz(worksheet, lista_wartosci):
     worksheet.append_row(lista_wartosci)
 
