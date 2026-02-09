@@ -422,9 +422,9 @@ with tab2:
             if col == "Kategoria": df_obsluga[col] = "Inne"
 
     # --- LOGIKA DYNAMICZNYCH KATEGORII ---
-    # Definiujemy bazę lokalnie, jeśli nie ma jej w globalnych
+    # Definiujemy bazę lokalnie
     baza_kategorii = [
-  "Inne"
+        "Inne"
     ]
     
     if not df_obsluga.empty:
@@ -469,9 +469,8 @@ with tab2:
         else:
             st.warning("Musisz wpisać nazwę Roli i wybrać Kategorię!")
 
-    # --- 1. Formularz Dodawania (ZMIENIONY UKŁAD) ---
+    # --- 1. Formularz Dodawania ---
     with st.expander("➕ Dodaj nową usługę / koszt", expanded=False):
-        # Wiersz 1: Wybór kategorii i ewentualne wpisanie nowej (obok siebie)
         c_select, c_input = st.columns(2)
         with c_select:
             wybrana_opcja = st.selectbox("Kategoria", options=opcje_do_wyboru, key="org_kategoria_select")
@@ -479,10 +478,8 @@ with tab2:
             if wybrana_opcja == "➕ Stwórz nową kategorię...":
                 st.text_input("Wpisz nazwę nowej kategorii:", key="org_kategoria_input", placeholder="np. Poprawiny")
         
-        # Wiersz 2: Rola (pod spodem, na całą szerokość lub w kolumnach poniżej)
         st.text_input("Rola (np. DJ, Sala)", key="org_rola")
             
-        # Wiersz 3: Finanse
         c1, c2 = st.columns(2)
         with c1:
             st.number_input("Całkowity Koszt (zł)", min_value=0.0, step=100.0, key="org_koszt")
@@ -498,8 +495,7 @@ with tab2:
     st.write("---")
     st.subheader(f"💸 Lista Wydatków ({len(df_obsluga)} pozycji)")
     
-    lista_do_filtra = wszystkie_kategorie
-    wybrane_kategorie = st.multiselect("🔍 Filtruj po kategorii:", options=lista_do_filtra, default=[])
+    wybrane_kategorie = st.multiselect("🔍 Filtruj po kategorii:", options=wszystkie_kategorie, default=[])
 
     df_org_display = df_obsluga.copy()
 
@@ -560,29 +556,57 @@ with tab2:
         st.success("Zapisano budżet!")
         st.rerun()
 
+    # --- PODSUMOWANIE I WYKRESY ---
     if not df_obsluga.empty:
         df_calc = df_obsluga.copy()
         df_calc["Koszt"] = pd.to_numeric(df_calc["Koszt"], errors='coerce').fillna(0.0)
         df_calc["Zaliczka"] = pd.to_numeric(df_calc["Zaliczka"], errors='coerce').fillna(0.0)
         def fix_bool(x): return str(x).lower().strip() in ["tak", "true", "1", "yes"]
+        df_calc["Czy_Oplacone_Bool"] = df_calc["Czy_Oplacone"].apply(fix_bool)
+        df_calc["Czy_Zaliczka_Bool"] = df_calc["Czy_Zaliczka_Oplacona"].apply(fix_bool)
         
         st.write("---")
+        
+        # Obliczenia do metryk
         total_koszt = df_calc["Koszt"].sum()
         wydano = 0.0
         for index, row in df_calc.iterrows():
-            jest_oplacone = fix_bool(row["Czy_Oplacone"])
-            zaliczka_ok = fix_bool(row["Czy_Zaliczka_Oplacona"])
-            
-            if jest_oplacone:
+            if row["Czy_Oplacone_Bool"]:
                 wydano += row["Koszt"]
-            elif zaliczka_ok:
+            elif row["Czy_Zaliczka_Bool"]:
                 wydano += row["Zaliczka"]
         
         pozostalo = total_koszt - wydano
+        
         k1, k2, k3 = st.columns(3)
         k1.metric("Łączny budżet (Całość)", f"{total_koszt:,.0f} zł".replace(",", " "))
         k2.metric("Już zapłacono", f"{wydano:,.0f} zł".replace(",", " "))
         k3.metric("Pozostało do zapłaty", f"{pozostalo:,.0f} zł".replace(",", " "), delta=f"-{pozostalo} zł", delta_color="inverse")
+
+        # --- WYKRESY ---
+        st.write("---")
+        st.subheader("📊 Wykresy Wydatków")
+
+        # 1. Wykres łącznych kosztów na kategorię
+        # Grupujemy po kategorii i sumujemy koszty
+        koszty_wg_kategorii = df_calc.groupby("Kategoria")["Koszt"].sum().sort_values(ascending=False)
+        
+        col_chart1, col_chart2 = st.columns(2)
+        
+        with col_chart1:
+            st.write("**Łączne wydatki wg kategorii (zł)**")
+            st.bar_chart(koszty_wg_kategorii)
+
+        # 2. Wykres: Ile już zapłacono vs Ile zostało (dla każdej kategorii)
+        with col_chart2:
+            st.write("**Status płatności wg kategorii**")
+            # Obliczamy kolumny pomocnicze dla wykresu
+            df_calc["Zapłacono"] = df_calc.apply(lambda x: x["Koszt"] if x["Czy_Oplacone_Bool"] else (x["Zaliczka"] if x["Czy_Zaliczka_Bool"] else 0.0), axis=1)
+            df_calc["DoZapłaty"] = df_calc["Koszt"] - df_calc["Zapłacono"]
+            
+            # Grupujemy i wybieramy tylko dwie kolumny do wyświetlenia
+            wykres_status = df_calc.groupby("Kategoria")[["Zapłacono", "DoZapłaty"]].sum()
+            st.bar_chart(wykres_status)
 # ==========================
 
 # ZAKŁADKA 3: LISTA ZADAŃ (TO-DO)
