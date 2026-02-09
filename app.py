@@ -92,7 +92,7 @@ with tab1:
         st.stop()
     
     if df_goscie.empty:
-        df_goscie = pd.DataFrame(columns=["Imie_Nazwisko", "Imie_Osoby_Tow", "Potwierdzenie"])
+        df_goscie = pd.DataFrame(columns=["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP"])
 
     # --- 1. Formularz Dodawania ---
     with st.expander("➕ Dodaj nowego gościa", expanded=True):
@@ -105,7 +105,7 @@ with tab1:
             if czy_z_osoba:
                 st.text_input("Imię Osoby Towarzyszącej", key="input_partner")
 
-        st.checkbox("Czy potwierdzili przybycie?", key="check_rsvp")
+        st.checkbox("Czy potwierdzili przybycie (RSVP)?", key="check_rsvp")
         
         # Przycisk z callbackiem
         st.button("Dodaj do listy", on_click=obsluga_dodawania)
@@ -115,7 +115,7 @@ with tab1:
     st.subheader(f"📋 Lista Gości ({len(df_goscie)} pozycji)")
 
     df_display = df_goscie.copy()
-    df_display["Potwierdzenie"] = df_display["Potwierdzenie"].apply(lambda x: True if str(x).lower() == "tak" else False)
+    df_display["RSVP"] = df_display["RSVP"].apply(lambda x: True if str(x).lower() == "tak" else False)
 
     # TUTAJ ZMIANA: Usunęliśmy num_rows="dynamic"
     edytowane_goscie = st.data_editor(
@@ -124,7 +124,7 @@ with tab1:
         column_config={
             "Imie_Nazwisko": st.column_config.TextColumn("Imię i Nazwisko"),
             "Imie_Osoby_Tow": st.column_config.TextColumn("Info (+1)", disabled=True),
-            "RSVP": st.column_config.CheckboxColumn("Powierdzenie")
+            "RSVP": st.column_config.CheckboxColumn("RSVP")
         },
         use_container_width=True,
         key="editor_goscie"
@@ -132,14 +132,14 @@ with tab1:
 
     if st.button("💾 Zapisz zmiany w tabeli (Goście)"):
         df_to_save = edytowane_goscie.copy()
-        df_to_save["Potwierdzone"] = df_to_save["Potwierdzone"].apply(lambda x: "Tak" if x else "Nie")
+        df_to_save["RSVP"] = df_to_save["RSVP"].apply(lambda x: "Tak" if x else "Nie")
         df_to_save = df_to_save.fillna("")
         aktualizuj_caly_arkusz(worksheet_goscie, df_to_save)
         st.success("Zapisano zmiany w Google Sheets!")
         st.rerun()
 
     if not df_goscie.empty:
-        potwierdzone = df_goscie[df_goscie["Potwierdzenie"].astype(str) == "Tak"]
+        potwierdzone = df_goscie[df_goscie["RSVP"].astype(str) == "Tak"]
         st.info(f"Gości: {len(df_goscie)} | Potwierdziło: {len(potwierdzone)}")
 # ==========================
 # ZAKŁADKA 2: OBSŁUGA
