@@ -7,21 +7,31 @@ from datetime import date
 # --- KONFIGURACJA STRONY ---
 st.set_page_config(page_title="Menadżer Ślubny", page_icon="💍", layout="wide")
 
+# --- STAŁE (LISTA KATEGORII) ---
+LISTA_KATEGORII = [
+    "Sala i Jedzenie", 
+    "Muzyka i Oprawa", 
+    "Foto i Video", 
+    "Stroje i Obrączki", 
+    "Dekoracje i Kwiaty", 
+    "Transport i Nocleg", 
+    "Formalności", 
+    "Inne"
+]
+
 # --- POŁĄCZENIE Z GOOGLE SHEETS ---
 @st.cache_resource
 def polacz_z_arkuszem():
-    # Pobieramy sekrety
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds_dict = dict(st.secrets["gcp_service_account"])
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
     
-    # Otwieramy arkusz
     try:
         sheet = client.open("Wesele_Baza")
         return sheet
     except Exception as e:
-        st.error(f"Nie znaleziono arkusza 'Wesele_Baza'. Upewnij się, że nazwa jest poprawna i udostępniłeś go mailowi robota.")
+        st.error(f"Nie znaleziono arkusza 'Wesele_Baza'.")
         st.stop()
 
 # Inicjalizacja połączenia
@@ -33,24 +43,26 @@ try:
         worksheet_zadania = sh.worksheet("Zadania")
     except:
         worksheet_zadania = None
-        st.warning("⚠️ Brakuje zakładki 'Zadania' w Arkuszu Google! Stwórz ją, aby lista zadań działała.")
+        st.warning("⚠️ Brakuje zakładki 'Zadania'.")
 except Exception as e:
-    st.error(f"Błąd arkusza: {e}. Sprawdź czy zakładki nazywają się 'Goscie' i 'Obsluga' oraz czy Wiersz 1 zawiera nagłówki bez pustych pól!")
+    st.error(f"Błąd arkusza: {e}.")
     st.stop()
 
 # --- FUNKCJE POMOCNICZE ---
-def pobierz_dane(worksheet):
-    # get_all_records wymaga, aby 1. wiersz był nagłówkami i nie miał pustych komórek w środku zakresu
-    dane = worksheet.get_all_records()
+@st.cache_data(ttl=5)
+def pobierz_dane(_worksheet):
+    if _worksheet is None: return pd.DataFrame()
+    dane = _worksheet.get_all_records()
     return pd.DataFrame(dane)
 
 def zapisz_nowy_wiersz(worksheet, lista_wartosci):
     worksheet.append_row(lista_wartosci)
+    st.cache_data.clear()
 
 def aktualizuj_caly_arkusz(worksheet, df):
     worksheet.clear()
-    # Zapisujemy nagłówki i dane
     worksheet.update([df.columns.values.tolist()] + df.values.tolist())
+    st.cache_data.clear()
 
 # --- UI APLIKACJI ---
 st.title("💍 Menadżer Ślubny")
@@ -63,7 +75,6 @@ tab1, tab2, tab3 = st.tabs(["👥 Lista Gości", "🎧 Organizacja", "✅ Lista 
 with tab1:
     st.header("Zarządzanie Gośćmi")
 
-    # --- 0. Funkcja obsługująca kliknięcie DODAJ ---
     def obsluga_dodawania():
         imie_glowne = st.session_state.get("input_imie", "")
         imie_partnera = st.session_state.get("input_partner", "")
@@ -90,11 +101,10 @@ with tab1:
         else:
             st.warning("Musisz wpisać imię głównego gościa!")
 
-    # Pobieranie danych
     try:
         df_goscie = pobierz_dane(worksheet_goscie)
     except Exception as e:
-        st.error(f"Błąd w zakładce GOŚCIE: {e}. Sprawdź czy dodałeś kolumnę 'Zaproszenie_Wyslane' w D1.")
+        st.error(f"Błąd w zakładce GOŚCIE: {e}")
         st.stop()
     
     if df_goscie.empty:
@@ -103,10 +113,8 @@ with tab1:
     if "Zaproszenie_Wyslane" not in df_goscie.columns:
         df_goscie["Zaproszenie_Wyslane"] = "Nie"
 
-    # --- 1. Formularz Dodawania ---
     with st.expander("➕ Szybkie dodawanie (Formularz)", expanded=False):
         czy_z_osoba = st.checkbox("Chcę dodać też osobę towarzyszącą (+1)", key="check_plusone")
-        
         c1, c2 = st.columns(2)
         with c1:
             st.text_input("Imię i Nazwisko Gościa", key="input_imie")
@@ -115,90 +123,68 @@ with tab1:
                 st.text_input("Imię Osoby Towarzyszącej", key="input_partner")
         
         k1, k2 = st.columns(2)
-        with k1:
-            st.checkbox("✉️ Zaproszenie wysłane?", key="check_invite")
-        with k2:
-            st.checkbox("✅ Potwierdzenie Przybycia", key="check_rsvp")
+        with k1: st.checkbox("✉️ Zaproszenie wysłane?", key="check_invite")
+        with k2: st.checkbox("✅ Potwierdzenie Przybycia", key="check_rsvp")
         
         st.button("Dodaj do listy", on_click=obsluga_dodawania, key="btn_goscie")
 
-    # --- 2. Główna Tabela ---
     st.write("---")
     st.subheader(f"📋 Lista Gości ({len(df_goscie)} pozycji)")
 
-    # --- PRZYGOTOWANIE DANYCH ---
     df_display = df_goscie.copy()
-    
-    df_display["Imie_Nazwisko"] = df_display["Imie_Nazwisko"].astype(str).replace("nan", "")
-    df_display["Imie_Osoby_Tow"] = df_display["Imie_Osoby_Tow"].astype(str).replace("nan", "")
+    if not df_display.empty:
+        if "Imie_Nazwisko" in df_display.columns:
+            df_display["Imie_Nazwisko"] = df_display["Imie_Nazwisko"].astype(str).replace("nan", "")
+        if "Imie_Osoby_Tow" in df_display.columns:
+            df_display["Imie_Osoby_Tow"] = df_display["Imie_Osoby_Tow"].astype(str).replace("nan", "")
 
     def parsuj_bool(wartosc):
         return str(wartosc).lower() in ["tak", "true", "1", "yes"]
     
-    df_display["RSVP"] = df_display["RSVP"].apply(parsuj_bool)
-    df_display["Zaproszenie_Wyslane"] = df_display["Zaproszenie_Wyslane"].apply(parsuj_bool)
+    if "RSVP" in df_display.columns: df_display["RSVP"] = df_display["RSVP"].apply(parsuj_bool)
+    if "Zaproszenie_Wyslane" in df_display.columns: df_display["Zaproszenie_Wyslane"] = df_display["Zaproszenie_Wyslane"].apply(parsuj_bool)
 
-    # --- RĘCZNE SORTOWANIE ---
     col_sort1, col_sort2 = st.columns([1, 3])
-    with col_sort1:
-        st.write("**Sortuj wg:**")
+    with col_sort1: st.write("**Sortuj wg:**")
     with col_sort2:
-        tryb_sortowania = st.radio(
-            "Wybierz tryb sortowania",
-            options=["Domyślnie", "✉️ Wysłane zaproszenia", "✉️ Brak zaproszenia", "✅ Potwierdzone Przybycie", "🔤 Nazwisko (A-Z)"],
-            label_visibility="collapsed",
-            horizontal=True,
-            key="sort_goscie_radio"
-        )
+        tryb_sortowania = st.radio("Sortowanie", ["Domyślnie", "✉️ Wysłane zaproszenia", "✉️ Brak zaproszenia", "✅ Potwierdzone Przybycie", "🔤 Nazwisko (A-Z)"], label_visibility="collapsed", horizontal=True, key="sort_goscie_radio")
 
-    if tryb_sortowania == "✉️ Wysłane zaproszenia":
-        df_display = df_display.sort_values(by="Zaproszenie_Wyslane", ascending=False)
-    elif tryb_sortowania == "✉️ Brak zaproszenia":
-        df_display = df_display.sort_values(by="Zaproszenie_Wyslane", ascending=True)
-    elif tryb_sortowania == "✅ Potwierdzone Przybycie":
-        df_display = df_display.sort_values(by="RSVP", ascending=False)
-    elif tryb_sortowania == "🔤 Nazwisko (A-Z)":
-        df_display = df_display.sort_values(by="Imie_Nazwisko", ascending=True)
+    if not df_display.empty:
+        if tryb_sortowania == "✉️ Wysłane zaproszenia": df_display = df_display.sort_values(by="Zaproszenie_Wyslane", ascending=False)
+        elif tryb_sortowania == "✉️ Brak zaproszenia": df_display = df_display.sort_values(by="Zaproszenie_Wyslane", ascending=True)
+        elif tryb_sortowania == "✅ Potwierdzone Przybycie": df_display = df_display.sort_values(by="RSVP", ascending=False)
+        elif tryb_sortowania == "🔤 Nazwisko (A-Z)": df_display = df_display.sort_values(by="Imie_Nazwisko", ascending=True)
 
-    # EDYTOR DANYCH
     edytowane_goscie = st.data_editor(
-        df_display,
-        num_rows="dynamic",
+        df_display, num_rows="dynamic", use_container_width=True, hide_index=True, key="editor_goscie",
         column_config={
             "Imie_Nazwisko": st.column_config.TextColumn("Imię i Nazwisko", required=True),
             "Imie_Osoby_Tow": st.column_config.TextColumn("Info (+1) / Powiązanie", width="large"),
-            "Zaproszenie_Wyslane": st.column_config.CheckboxColumn("✉️ Wysłane Zaproszenie", default=False),
-            "RSVP": st.column_config.CheckboxColumn("✅ Potwierdzone Przybycie", default=False)
-        },
-        use_container_width=True,
-        hide_index=True,
-        key="editor_goscie"
+            "Zaproszenie_Wyslane": st.column_config.CheckboxColumn("✉️ Wysłane?", default=False),
+            "RSVP": st.column_config.CheckboxColumn("✅ RSVP", default=False)
+        }
     )
 
-    # ZAPISYWANIE - TUTAJ BYŁ BŁĄD, DODAŁEM KEY="save_goscie"
     if st.button("💾 Zapisz zmiany", key="save_goscie"):
         df_to_save = edytowane_goscie.copy()
-        
-        df_to_save = df_to_save[df_to_save["Imie_Nazwisko"].str.strip() != ""]
-        
-        df_to_save["RSVP"] = df_to_save["RSVP"].apply(lambda x: "Tak" if x else "Nie")
-        df_to_save["Zaproszenie_Wyslane"] = df_to_save["Zaproszenie_Wyslane"].apply(lambda x: "Tak" if x else "Nie")
+        if not df_to_save.empty:
+            df_to_save = df_to_save[df_to_save["Imie_Nazwisko"].str.strip() != ""]
+            df_to_save["RSVP"] = df_to_save["RSVP"].apply(lambda x: "Tak" if x else "Nie")
+            df_to_save["Zaproszenie_Wyslane"] = df_to_save["Zaproszenie_Wyslane"].apply(lambda x: "Tak" if x else "Nie")
         
         df_to_save = df_to_save.fillna("")
-        
         aktualizuj_caly_arkusz(worksheet_goscie, df_to_save)
         st.success("Zapisano zmiany!")
         st.rerun()
 
-    # Statystyki
     if not df_goscie.empty:
-        potwierdzone = df_goscie[df_goscie["RSVP"].astype(str) == "Tak"]
-        zaproszone = df_goscie[df_goscie["Zaproszenie_Wyslane"].astype(str) == "Tak"]
-        
-        k1, k2, k3 = st.columns(3)
-        k1.metric("Liczba gości", f"{len(df_goscie)}")
-        k2.metric("Wysłane zaproszenia", f"{len(zaproszone)}")
-        k3.metric("Potwierdzone Przybycia", f"{len(potwierdzone)}")
+        if "RSVP" in df_goscie.columns and "Zaproszenie_Wyslane" in df_goscie.columns:
+            potwierdzone = df_goscie[df_goscie["RSVP"].astype(str) == "Tak"]
+            zaproszone = df_goscie[df_goscie["Zaproszenie_Wyslane"].astype(str) == "Tak"]
+            k1, k2, k3 = st.columns(3)
+            k1.metric("Liczba gości", f"{len(df_goscie)}")
+            k2.metric("Wysłane zaproszenia", f"{len(zaproszone)}")
+            k3.metric("Potwierdzone Przybycia", f"{len(potwierdzone)}")
 
 # ==========================
 # ZAKŁADKA 2: ORGANIZACJA I BUDŻET
@@ -206,8 +192,8 @@ with tab1:
 with tab2:
     st.header("🎧 Organizacja i Budżet")
 
-    # --- 0. Funkcja Callback do dodawania (Finanse) ---
     def dodaj_usluge():
+        kategoria = st.session_state.get("org_kategoria", "Inne")
         rola = st.session_state.get("org_rola", "")
         info = st.session_state.get("org_info", "")
         koszt = st.session_state.get("org_koszt", 0.0)
@@ -220,10 +206,10 @@ with tab2:
             txt_oplacone = "Tak" if czy_oplacone else "Nie"
             txt_zaliczka_opl = "Tak" if czy_zaliczka_oplacona else "Nie"
 
-            zapisz_nowy_wiersz(worksheet_obsluga, [rola, info, koszt, txt_oplacone, zaliczka_kwota, txt_zaliczka_opl])
-            st.toast(f"💰 Dodano usługę: {rola}")
+            # Dodajemy kategorię jako pierwszy element listy
+            zapisz_nowy_wiersz(worksheet_obsluga, [kategoria, rola, info, koszt, txt_oplacone, zaliczka_kwota, txt_zaliczka_opl])
+            st.toast(f"💰 Dodano usługę: {rola} ({kategoria})")
 
-            # Reset pól
             st.session_state["org_rola"] = ""
             st.session_state["org_info"] = ""
             st.session_state["org_koszt"] = 0.0
@@ -233,24 +219,36 @@ with tab2:
         else:
             st.warning("Musisz wpisać nazwę Roli (np. DJ, Fotograf)!")
 
-    # Pobieranie danych
     try:
         df_obsluga = pobierz_dane(worksheet_obsluga)
     except Exception as e:
-        st.error("Błąd danych. Sprawdź nagłówki w zakładce Obsluga.")
+        st.error("Błąd danych. Sprawdź nagłówki.")
         st.stop()
 
+    # Struktura z nową kolumną KATEGORIA na początku
+    wymagane_kolumny_org = ["Kategoria", "Rola", "Informacje", "Koszt", "Czy_Oplacone", "Zaliczka", "Czy_Zaliczka_Oplacona"]
+    
     if df_obsluga.empty:
-        df_obsluga = pd.DataFrame(columns=["Rola", "Informacje", "Koszt", "Czy_Oplacone", "Zaliczka", "Czy_Zaliczka_Oplacona"])
+        df_obsluga = pd.DataFrame(columns=wymagane_kolumny_org)
 
-    # ZABEZPIECZENIE: Usuwamy spacje z nazw kolumn (gdyby w Google Sheets było "Koszt " zamiast "Koszt")
+    # ZABEZPIECZENIE: Tworzenie brakujących kolumn
     df_obsluga.columns = df_obsluga.columns.str.strip()
+    for col in wymagane_kolumny_org:
+        if col not in df_obsluga.columns:
+            df_obsluga[col] = ""
+            if col == "Kategoria":
+                df_obsluga[col] = "Inne" # Domyślna wartość dla starych wpisów
 
     # --- 1. Formularz Dodawania ---
     with st.expander("➕ Dodaj nową usługę / koszt", expanded=False):
+        c_kat, c_rol = st.columns([1, 2])
+        with c_kat:
+            st.selectbox("Kategoria", options=LISTA_KATEGORII, key="org_kategoria")
+        with c_rol:
+            st.text_input("Rola (np. DJ, Sala)", key="org_rola")
+            
         c1, c2 = st.columns(2)
         with c1:
-            st.text_input("Rola (np. DJ, Sala)", key="org_rola")
             st.number_input("Całkowity Koszt (zł)", min_value=0.0, step=100.0, key="org_koszt")
             st.checkbox("Czy całość już opłacona?", key="org_oplacone")
         with c2:
@@ -258,19 +256,26 @@ with tab2:
             st.number_input("Wymagana Zaliczka (0 jeśli brak)", min_value=0.0, step=100.0, key="org_zaliczka_kwota")
             st.checkbox("Czy zaliczka opłacona?", key="org_zaliczka_oplacona")
         
-        st.button("Dodaj do budżetu", on_click=dodaj_usluge, key="btn_obsluga") # Dodany unikalny key dla przycisku
+        st.button("Dodaj do budżetu", on_click=dodaj_usluge, key="btn_obsluga")
 
-    # --- 2. Tabela Edycji ---
+    # --- 2. FILTROWANIE ---
     st.write("---")
     st.subheader(f"💸 Lista Wydatków ({len(df_obsluga)} pozycji)")
+    
+    wybrane_kategorie = st.multiselect("🔍 Filtruj po kategorii:", options=LISTA_KATEGORII, default=[])
 
     # PRZYGOTOWANIE DANYCH
     df_org_display = df_obsluga.copy()
 
-    # Czyszczenie typów danych
+    # Filtrowanie (jeśli coś wybrano)
+    if wybrane_kategorie:
+        df_org_display = df_org_display[df_org_display["Kategoria"].isin(wybrane_kategorie)]
+
+    # Czyszczenie typów
     df_org_display["Koszt"] = pd.to_numeric(df_org_display["Koszt"], errors='coerce').fillna(0.0)
     df_org_display["Zaliczka"] = pd.to_numeric(df_org_display["Zaliczka"], errors='coerce').fillna(0.0)
     df_org_display["Rola"] = df_org_display["Rola"].astype(str).replace("nan", "")
+    df_org_display["Kategoria"] = df_org_display["Kategoria"].astype(str).replace("nan", "")
     df_org_display["Informacje"] = df_org_display["Informacje"].astype(str).replace("nan", "")
 
     def napraw_booleana(x):
@@ -279,94 +284,74 @@ with tab2:
     df_org_display["Czy_Oplacone"] = df_org_display["Czy_Oplacone"].apply(napraw_booleana)
     df_org_display["Czy_Zaliczka_Oplacona"] = df_org_display["Czy_Zaliczka_Oplacona"].apply(napraw_booleana)
 
-    # --- SORTOWANIE (POPRAWIONE) ---
-    # Definiujemy nazwy opcji w zmiennych, żeby uniknąć literówek
-    O_DOMYSLNE = "Domyślnie"
-    O_NAJDROZSZE = "💰 Najdroższe"
-    O_NIEOPLACONE = "❌ Nieopłacone (Całość)"
-    O_OPLACONE = "✅ Opłacone (Całość)"
-    O_BRAK_ZALICZKI = "❌ Brak Opłaconej Zaliczki"
-    O_ZALICZKA_OK = "✅ Zaliczka Opłacona"
-    O_AZ = "🔤 Rola (A-Z)"
-
+    # SORTOWANIE
     col_sort1, col_sort2 = st.columns([1, 3])
-    with col_sort1:
-        st.write("**Sortuj wg:**")
+    with col_sort1: st.write("**Sortuj wg:**")
     with col_sort2:
-        tryb_finanse = st.radio(
-            "Sortowanie Finansów",
-            options=[O_DOMYSLNE, O_NAJDROZSZE, O_NIEOPLACONE, O_OPLACONE, O_BRAK_ZALICZKI, O_ZALICZKA_OK, O_AZ],
-            label_visibility="collapsed",
-            horizontal=True,
-            key="sort_finanse"
-        )
+        tryb_finanse = st.radio("Sortowanie Finansów",
+            options=["Domyślnie", "📂 Kategoria", "💰 Najdroższe", "❌ Nieopłacone", "✅ Opłacone", "❌ Brak Zaliczki", "✅ Zaliczka Opłacona"],
+            label_visibility="collapsed", horizontal=True, key="sort_finanse")
 
-    # Logika sortowania
-    if tryb_finanse == O_NAJDROZSZE:
-        df_org_display = df_org_display.sort_values(by="Koszt", ascending=False)
-    elif tryb_finanse == O_NIEOPLACONE:
-        df_org_display = df_org_display.sort_values(by="Czy_Oplacone", ascending=True)
-    elif tryb_finanse == O_OPLACONE:
-        df_org_display = df_org_display.sort_values(by="Czy_Oplacone", ascending=False)
-    elif tryb_finanse == O_BRAK_ZALICZKI:
-        # Puste okienka (False) idą na górę
-        df_org_display = df_org_display.sort_values(by="Czy_Zaliczka_Oplacona", ascending=True)
-    elif tryb_finanse == O_ZALICZKA_OK:
-        # Zaznaczone okienka (True) idą na górę
-        df_org_display = df_org_display.sort_values(by="Czy_Zaliczka_Oplacona", ascending=False)
-    elif tryb_finanse == O_AZ:
-        df_org_display = df_org_display.sort_values(by="Rola", ascending=True)
+    if tryb_finanse == "💰 Najdroższe": df_org_display = df_org_display.sort_values(by="Koszt", ascending=False)
+    elif tryb_finanse == "❌ Nieopłacone": df_org_display = df_org_display.sort_values(by="Czy_Oplacone", ascending=True)
+    elif tryb_finanse == "✅ Opłacone": df_org_display = df_org_display.sort_values(by="Czy_Oplacone", ascending=False)
+    elif tryb_finanse == "❌ Brak Zaliczki": df_org_display = df_org_display.sort_values(by="Czy_Zaliczka_Oplacona", ascending=True)
+    elif tryb_finanse == "✅ Zaliczka Opłacona": df_org_display = df_org_display.sort_values(by="Czy_Zaliczka_Oplacona", ascending=False)
+    elif tryb_finanse == "📂 Kategoria": df_org_display = df_org_display.sort_values(by="Kategoria", ascending=True)
 
     # EDYTOR
-    edytowana_obsluga = st.data_editor(
+    edytowane_obsluga = st.data_editor(
         df_org_display,
         num_rows="dynamic",
         column_config={
+            "Kategoria": st.column_config.SelectboxColumn("Kategoria", options=LISTA_KATEGORII, required=True, width="medium"),
             "Rola": st.column_config.TextColumn("Rola / Usługa", required=True),
             "Informacje": st.column_config.TextColumn("Kontakt / Info", width="medium"),
             "Koszt": st.column_config.NumberColumn("Koszt (Całość)", format="%d zł", step=100),
             "Czy_Oplacone": st.column_config.CheckboxColumn("✅ Opłacone?"),
             "Zaliczka": st.column_config.NumberColumn("Zaliczka", format="%d zł", step=100),
-            "Czy_Zaliczka_Oplacona": st.column_config.CheckboxColumn("✅ Zaliczka wpłacona?")
+            "Czy_Zaliczka_Oplacona": st.column_config.CheckboxColumn("✅ Zaliczka?")
         },
         use_container_width=True,
         hide_index=True,
         key="editor_obsluga"
     )
 
-    # ZAPISYWANIE
     if st.button("💾 Zapisz zmiany", key="save_obsluga"):
-        df_to_save_org = edytowana_obsluga.copy()
-        
-        # Usuwanie pustych
-        df_to_save_org = df_to_save_org[df_to_save_org["Rola"].str.strip() != ""]
-        
-        # Konwersja Bool -> Tak/Nie
-        df_to_save_org["Czy_Oplacone"] = df_to_save_org["Czy_Oplacone"].apply(lambda x: "Tak" if x else "Nie")
-        df_to_save_org["Czy_Zaliczka_Oplacona"] = df_to_save_org["Czy_Zaliczka_Oplacona"].apply(lambda x: "Tak" if x else "Nie")
+        df_to_save_org = edytowane_obsluga.copy()
+        if not df_to_save_org.empty:
+            df_to_save_org = df_to_save_org[df_to_save_org["Rola"].str.strip() != ""]
+            df_to_save_org["Czy_Oplacone"] = df_to_save_org["Czy_Oplacone"].apply(lambda x: "Tak" if x else "Nie")
+            df_to_save_org["Czy_Zaliczka_Oplacona"] = df_to_save_org["Czy_Zaliczka_Oplacona"].apply(lambda x: "Tak" if x else "Nie")
         
         df_to_save_org = df_to_save_org.fillna("")
-
         aktualizuj_caly_arkusz(worksheet_obsluga, df_to_save_org)
         st.success("Zapisano budżet!")
         st.rerun()
 
-    # --- 3. PODSUMOWANIE ---
-    if not df_org_display.empty:
-        st.write("---")
-        total_koszt = df_org_display["Koszt"].sum()
+    # PODSUMOWANIE (Liczone dla WSZYSTKICH wydatków, nie tylko przefiltrowanych)
+    if not df_obsluga.empty:
+        # Ponowna konwersja oryginału do obliczeń (bo display jest przefiltrowany)
+        df_calc = df_obsluga.copy()
+        df_calc["Koszt"] = pd.to_numeric(df_calc["Koszt"], errors='coerce').fillna(0.0)
+        df_calc["Zaliczka"] = pd.to_numeric(df_calc["Zaliczka"], errors='coerce').fillna(0.0)
+        def fix_bool(x): return str(x).lower().strip() in ["tak", "true", "1", "yes"]
         
+        st.write("---")
+        total_koszt = df_calc["Koszt"].sum()
         wydano = 0.0
-        for index, row in df_org_display.iterrows():
-            if row["Czy_Oplacone"]:
+        for index, row in df_calc.iterrows():
+            jest_oplacone = fix_bool(row["Czy_Oplacone"])
+            zaliczka_ok = fix_bool(row["Czy_Zaliczka_Oplacona"])
+            
+            if jest_oplacone:
                 wydano += row["Koszt"]
-            elif row["Czy_Zaliczka_Oplacona"]:
+            elif zaliczka_ok:
                 wydano += row["Zaliczka"]
         
         pozostalo = total_koszt - wydano
-
         k1, k2, k3 = st.columns(3)
-        k1.metric("Łączny koszt", f"{total_koszt:,.0f} zł".replace(",", " "))
+        k1.metric("Łączny budżet (Całość)", f"{total_koszt:,.0f} zł".replace(",", " "))
         k2.metric("Już zapłacono", f"{wydano:,.0f} zł".replace(",", " "))
         k3.metric("Pozostało do zapłaty", f"{pozostalo:,.0f} zł".replace(",", " "), delta=f"-{pozostalo} zł", delta_color="inverse")
 
@@ -382,10 +367,8 @@ with tab3:
         
         if tresc:
             termin_str = termin.strftime("%Y-%m-%d")
-            
             zapisz_nowy_wiersz(worksheet_zadania, [tresc, termin_str, "Nie"])
             st.toast(f"📅 Dodano zadanie: {tresc}")
-
             st.session_state["todo_tresc"] = ""
         else:
             st.warning("Wpisz treść zadania!")
@@ -393,11 +376,15 @@ with tab3:
     try:
         df_zadania = pobierz_dane(worksheet_zadania)
     except Exception as e:
-        st.error("Błąd danych. Sprawdź nagłówki w zakładce Zadania.")
+        st.error("Błąd danych.")
         st.stop()
 
     if df_zadania.empty:
         df_zadania = pd.DataFrame(columns=["Zadanie", "Termin", "Czy_Zrobione"])
+    
+    kolumny_todo = ["Zadanie", "Termin", "Czy_Zrobione"]
+    for col in kolumny_todo:
+        if col not in df_zadania.columns: df_zadania[col] = ""
 
     with st.expander("➕ Dodaj nowe zadanie", expanded=False):
         c1, c2 = st.columns([2, 1])
@@ -405,78 +392,59 @@ with tab3:
             st.text_input("Co trzeba zrobić?", key="todo_tresc", placeholder="np. Kupić winietki")
         with c2:
             st.date_input("Termin wykonania", value=date.today(), key="todo_data")
-        
         st.button("Dodaj do listy", on_click=dodaj_zadanie, key="btn_zadania")
 
     st.write("---")
     st.subheader(f"Lista Zadań ({len(df_zadania)})")
 
     df_todo_display = df_zadania.copy()
+    if "Zadanie" in df_todo_display.columns:
+        df_todo_display["Zadanie"] = df_todo_display["Zadanie"].astype(str).replace("nan", "")
+    if "Termin" in df_todo_display.columns:
+        df_todo_display["Termin"] = pd.to_datetime(df_todo_display["Termin"], errors='coerce').dt.date
 
-    df_todo_display["Zadanie"] = df_todo_display["Zadanie"].astype(str).replace("nan", "")
-    
-    df_todo_display["Termin"] = pd.to_datetime(df_todo_display["Termin"], errors='coerce').dt.date
-
-    def napraw_booleana(x):
+    def napraw_booleana_todo(x):
         return str(x).lower().strip() in ["tak", "true", "1", "yes"]
-    df_todo_display["Czy_Zrobione"] = df_todo_display["Czy_Zrobione"].apply(napraw_booleana)
+    
+    if "Czy_Zrobione" in df_todo_display.columns:
+        df_todo_display["Czy_Zrobione"] = df_todo_display["Czy_Zrobione"].apply(napraw_booleana_todo)
 
     col_sort1, col_sort2 = st.columns([1, 3])
-    with col_sort1:
-        st.write("**Filtruj / Sortuj:**")
+    with col_sort1: st.write("**Filtruj / Sortuj:**")
     with col_sort2:
-        tryb_todo = st.radio(
-            "Sortowanie Zadań",
-            options=["📅 Najpilniejsze (Data)", "❌ Do zrobienia", "✅ Zrobione", "🔤 Nazwa (A-Z)"],
-            label_visibility="collapsed",
-            horizontal=True,
-            key="sort_todo"
-        )
+        tryb_todo = st.radio("Sortowanie Zadań", ["📅 Najpilniejsze (Data)", "❌ Do zrobienia", "✅ Zrobione", "🔤 Nazwa (A-Z)"], label_visibility="collapsed", horizontal=True, key="sort_todo")
 
-    if tryb_todo == "📅 Najpilniejsze (Data)":
-        df_todo_display = df_todo_display.sort_values(by="Termin", ascending=True)
-    elif tryb_todo == "❌ Do zrobienia":
-        df_todo_display = df_todo_display.sort_values(by="Czy_Zrobione", ascending=True)
-    elif tryb_todo == "✅ Zrobione":
-        df_todo_display = df_todo_display.sort_values(by="Czy_Zrobione", ascending=False)
-    elif tryb_todo == "🔤 Nazwa (A-Z)":
-        df_todo_display = df_todo_display.sort_values(by="Zadanie", ascending=True)
+    if not df_todo_display.empty:
+        if tryb_todo == "📅 Najpilniejsze (Data)": df_todo_display = df_todo_display.sort_values(by="Termin", ascending=True)
+        elif tryb_todo == "❌ Do zrobienia": df_todo_display = df_todo_display.sort_values(by="Czy_Zrobione", ascending=True)
+        elif tryb_todo == "✅ Zrobione": df_todo_display = df_todo_display.sort_values(by="Czy_Zrobione", ascending=False)
+        elif tryb_todo == "🔤 Nazwa (A-Z)": df_todo_display = df_todo_display.sort_values(by="Zadanie", ascending=True)
 
     edytowane_zadania = st.data_editor(
-        df_todo_display,
-        num_rows="dynamic",
+        df_todo_display, num_rows="dynamic", use_container_width=True, hide_index=True, key="editor_zadania",
         column_config={
             "Zadanie": st.column_config.TextColumn("Treść zadania", required=True, width="large"),
             "Termin": st.column_config.DateColumn("Termin", format="DD.MM.YYYY", step=1),
             "Czy_Zrobione": st.column_config.CheckboxColumn("Zrobione?", width="small")
-        },
-        use_container_width=True,
-        hide_index=True,
-        key="editor_zadania"
+        }
     )
 
-    # ZAPISYWANIE - TUTAJ DODAŁEM KEY="save_zadania"
     if st.button("💾 Zapisz zmiany", key="save_zadania"):
         df_to_save_todo = edytowane_zadania.copy()
-        
-        df_to_save_todo = df_to_save_todo[df_to_save_todo["Zadanie"].str.strip() != ""]
-        
-        df_to_save_todo["Termin"] = pd.to_datetime(df_to_save_todo["Termin"]).dt.strftime("%Y-%m-%d")
-
-        df_to_save_todo["Czy_Zrobione"] = df_to_save_todo["Czy_Zrobione"].apply(lambda x: "Tak" if x else "Nie")
+        if not df_to_save_todo.empty:
+            df_to_save_todo = df_to_save_todo[df_to_save_todo["Zadanie"].str.strip() != ""]
+            df_to_save_todo["Termin"] = pd.to_datetime(df_to_save_todo["Termin"]).dt.strftime("%Y-%m-%d")
+            df_to_save_todo["Czy_Zrobione"] = df_to_save_todo["Czy_Zrobione"].apply(lambda x: "Tak" if x else "Nie")
         
         df_to_save_todo = df_to_save_todo.fillna("")
-
         aktualizuj_caly_arkusz(worksheet_zadania, df_to_save_todo)
         st.success("Zaktualizowano listę zadań!")
         st.rerun()
 
     if not df_zadania.empty:
         total = len(df_zadania)
-        zrobione = len(df_zadania[df_zadania["Czy_Zrobione"].apply(napraw_booleana)])
+        zrobione = len(df_zadania[df_zadania["Czy_Zrobione"].apply(napraw_booleana_todo)])
         procent = int((zrobione / total) * 100) if total > 0 else 0
-        
         st.write("---")
         st.progress(procent, text=f"Postęp prac: {zrobione}/{total} zadań ({procent}%)")
-        if procent == 100:
-            st.balloons()
+        if procent == 100: st.balloons()
