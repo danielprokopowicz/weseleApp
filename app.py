@@ -124,7 +124,7 @@ with tab1:
         with k1:
             st.checkbox("✉️ Zaproszenie wysłane?", key="check_invite")
         with k2:
-            st.checkbox("✅ Potwierdzenie Przybycia (RSVP)", key="check_rsvp")
+            st.checkbox("✅ Potwierdzenie Przybycia", key="check_rsvp")
         
         st.button("Dodaj do listy", on_click=obsluga_dodawania, key="btn_goscie")
 
@@ -153,7 +153,7 @@ with tab1:
     with col_sort2:
         tryb_sortowania = st.radio(
             "Wybierz tryb sortowania",
-            options=["Domyślnie", "✉️ Wysłane zaproszenia", "✉️ Brak zaproszenia", "✅ Potwierdzone RSVP", "🔤 Nazwisko (A-Z)"],
+            options=["Domyślnie", "✉️ Wysłane zaproszenia", "✉️ Brak zaproszenia", "✅ Potwierdzone Przybycie", "🔤 Nazwisko (A-Z)"],
             label_visibility="collapsed",
             horizontal=True,
             key="sort_goscie_radio"
@@ -164,7 +164,7 @@ with tab1:
         df_display = df_display.sort_values(by="Zaproszenie_Wyslane", ascending=False)
     elif tryb_sortowania == "✉️ Brak zaproszenia":
         df_display = df_display.sort_values(by="Zaproszenie_Wyslane", ascending=True)
-    elif tryb_sortowania == "✅ Potwierdzone RSVP":
+    elif tryb_sortowania == "✅ Potwierdzone Przybycie":
         df_display = df_display.sort_values(by="RSVP", ascending=False)
     elif tryb_sortowania == "🔤 Nazwisko (A-Z)":
         df_display = df_display.sort_values(by="Imie_Nazwisko", ascending=True)
@@ -177,7 +177,7 @@ with tab1:
             "Imie_Nazwisko": st.column_config.TextColumn("Imię i Nazwisko", required=True),
             "Imie_Osoby_Tow": st.column_config.TextColumn("Info (+1) / Powiązanie", width="large"),
             "Zaproszenie_Wyslane": st.column_config.CheckboxColumn("✉️ Wysłane?", default=False),
-            "RSVP": st.column_config.CheckboxColumn("✅ RSVP", default=False)
+            "RSVP": st.column_config.CheckboxColumn("✅ Potwierdzone Przybycie", default=False)
         },
         use_container_width=True,
         hide_index=True,
