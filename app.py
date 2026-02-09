@@ -106,29 +106,47 @@ with tab1:
     # --- 2. Główna Tabela ---
     st.write("---")
     st.subheader(f"📋 Lista Gości ({len(df_goscie)} pozycji)")
-    
-    # Usunąłem st.info o plusie, zgodnie z życzeniem.
 
-    # --- PRZYGOTOWANIE DANYCH DO SORTOWANIA ---
+    # --- PRZYGOTOWANIE DANYCH ---
     df_display = df_goscie.copy()
     
-    # 1. Konwersja tekstów: Zamieniamy wszystkie "nulle" i liczby na tekst (string)
-    # To jest kluczowe dla sortowania alfabetycznego!
+    # Konwersja na bezpieczne typy (String i Boolean)
     df_display["Imie_Nazwisko"] = df_display["Imie_Nazwisko"].astype(str).replace("nan", "")
     df_display["Imie_Osoby_Tow"] = df_display["Imie_Osoby_Tow"].astype(str).replace("nan", "")
 
-    # 2. Konwersja RSVP na logiczny (True/False)
-    # Dzięki temu sortowanie dzieli na: Zaznaczone vs Niezaznaczone
+    # Funkcja pomocnicza do RSVP
     def parsuj_rsvp(wartosc):
-        s = str(wartosc).lower().strip()
-        return s in ["tak", "true", "1", "yes"]
-
+        return str(wartosc).lower() in ["tak", "true", "1", "yes"]
+    
     df_display["RSVP"] = df_display["RSVP"].apply(parsuj_rsvp)
+
+    # --- NOWOŚĆ: RĘCZNE SORTOWANIE ---
+    # Dodajemy opcje wyboru nad tabelą
+    col_sort1, col_sort2 = st.columns([1, 3])
+    with col_sort1:
+        st.write("**Sortuj wg:**")
+    with col_sort2:
+        tryb_sortowania = st.radio(
+            "Wybierz tryb sortowania", # Etykieta (ukryta)
+            options=["Domyślnie (Kolejność dodania)", "✅ Potwierdzone na górze", "❌ Niepotwierdzone na górze", "🔤 Nazwisko (A-Z)"],
+            label_visibility="collapsed", # Ukrywa napis "Wybierz tryb..." żeby było ładniej
+            horizontal=True
+        )
+
+    # Logika sortowania (wykonywana w Pythonie, więc niezawodna)
+    if tryb_sortowania == "✅ Potwierdzone na górze":
+        # Sortujemy malejąco (True jest wyżej niż False)
+        df_display = df_display.sort_values(by="RSVP", ascending=False)
+    elif tryb_sortowania == "❌ Niepotwierdzone na górze":
+        # Sortujemy rosnąco (False jest wyżej niż True)
+        df_display = df_display.sort_values(by="RSVP", ascending=True)
+    elif tryb_sortowania == "🔤 Nazwisko (A-Z)":
+        df_display = df_display.sort_values(by="Imie_Nazwisko", ascending=True)
 
     # EDYTOR DANYCH
     edytowane_goscie = st.data_editor(
         df_display,
-        num_rows="dynamic", # Plus i Kosz są aktywne
+        num_rows="dynamic",
         column_config={
             "Imie_Nazwisko": st.column_config.TextColumn(
                 "Imię i Nazwisko", 
@@ -145,7 +163,7 @@ with tab1:
             )
         },
         use_container_width=True,
-        hide_index=True, # Ukryłem indeks (0,1,2), żeby było czyściej. Usuwanie nadal działa (zaznacz wiersz).
+        hide_index=True,
         key="editor_goscie"
     )
 
@@ -153,7 +171,7 @@ with tab1:
     if st.button("💾 Zapisz wszystkie zmiany (Tabela)"):
         df_to_save = edytowane_goscie.copy()
         
-        # Usuwamy puste wiersze (zabezpieczenie przed pustym plusem)
+        # Usuwanie pustych wierszy
         df_to_save = df_to_save[df_to_save["Imie_Nazwisko"].str.strip() != ""]
         
         # Konwersja RSVP z powrotem na Tak/Nie
