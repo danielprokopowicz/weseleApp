@@ -1190,9 +1190,9 @@ with tab4:
 
             if ksztalt_stolu == "Okrągły":
                 # Promienie
-                R_STOL = 0.8
-                R_KRZESLO_SRODEK = 1.1
-                R_TEKST = 1.35
+                R_STOL = 1.1
+                R_KRZESLO_SRODEK = 1.4
+                R_TEKST = 1.65
 
                 # Stół
                 circle = plt.Circle((0, 0), R_STOL, color=table_color, ec=edge_color, lw=4)
@@ -1240,8 +1240,8 @@ with tab4:
 
             elif ksztalt_stolu == "Prostokątny":
                 # Wymiary
-                W_STOL = 1.6
-                H_STOL = 3.2
+                W_STOL = 2.0
+                H_STOL = 4.0
                 
                 rect = plt.Rectangle((-W_STOL/2, -H_STOL/2), W_STOL, H_STOL, color=table_color, ec=edge_color, lw=4)
                 ax.add_artist(rect)
