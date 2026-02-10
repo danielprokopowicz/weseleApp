@@ -1266,8 +1266,8 @@ with tab4:
                     
                     guest_name = nowa_lista_gosci[i]
                     # Tekst jeszcze dalej
-                    text_x = 1.5 * np.cos(angle)
-                    text_y = 1.5 * np.sin(angle)
+                    text_x = 1.4 * np.cos(angle)
+                    text_y = 1.4 * np.sin(angle)
                     
                     rot = np.degrees(angle)
                     if 90 < rot < 270:
@@ -1300,12 +1300,12 @@ with tab4:
                     
                     # KRZESŁA BARDZIEJ ODSUNIĘTE (x=-1.3 i 1.3)
                     if i < side_count:
-                        x = -1.15
+                        x = -1.5
                         # Rozłożenie wzdłuż dłuższego stołu
                         y = np.linspace(-1.2, 1.2, side_count)[i]
                         ha = 'right'
                     else:
-                        x = 1.15
+                        x = 1.5
                         y = np.linspace(-1.2, 1.2, max_miejsc - side_count)[i - side_count]
                         ha = 'left'
 
