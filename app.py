@@ -1208,7 +1208,7 @@ with tab4:
                     cy = R_KRZESLO_SRODEK * np.sin(angle)
                     
                     # Rysujemy krzesło
-                    seat = plt.Circle((cx, cy), 0.18, color=seat_color, alpha=1.0)
+                    seat = plt.Circle((cx, cy), 0.25, color=seat_color, alpha=1.0)
                     ax.add_artist(seat)
                     
                     guest_name = nowa_lista_gosci[i]
@@ -1232,7 +1232,7 @@ with tab4:
                                 fontsize=16, color=text_color, fontweight='bold')
                     else:
                         # Większa czcionka numerów (14)
-                        ax.text(cx, cy, str(i+1), ha='center', va='center', fontsize=14, color='white')
+                        ax.text(cx, cy, str(i+1), ha='center', va='center', fontsize=16, color='white')
 
                 limit = 2.2
                 ax.set_xlim(-limit, limit)
@@ -1269,7 +1269,7 @@ with tab4:
                         text_offset_x = 0.25
 
                     # Krzesło
-                    seat = plt.Circle((x_pos, y_pos), 0.18, color=seat_color, alpha=1.0)
+                    seat = plt.Circle((x_pos, y_pos), 0.25, color=seat_color, alpha=1.0)
                     ax.add_artist(seat)
 
                     if guest_name:
@@ -1278,7 +1278,7 @@ with tab4:
                                 fontsize=16, color=text_color, fontweight='bold')
                     else:
                         # Większa czcionka numerów (14)
-                        ax.text(x_pos, y_pos, str(i+1), ha='center', va='center', fontsize=14, color='white')
+                        ax.text(x_pos, y_pos, str(i+1), ha='center', va='center', fontsize=16, color='white')
 
                 ax.set_xlim(-2.8, 2.8)
                 ax.set_ylim(-2.8, 2.8)
