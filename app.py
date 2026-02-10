@@ -1208,7 +1208,7 @@ with tab4:
                     cy = R_KRZESLO_SRODEK * np.sin(angle)
                     
                     # Rysujemy krzesło
-                    seat = plt.Circle((cx, cy), 0.25, color=seat_color, alpha=1.0)
+                    seat = plt.Circle((cx, cy), 0.21, color=seat_color, alpha=1.0)
                     ax.add_artist(seat)
                     
                     guest_name = nowa_lista_gosci[i]
@@ -1269,7 +1269,7 @@ with tab4:
                         text_offset_x = 0.25
 
                     # Krzesło
-                    seat = plt.Circle((x_pos, y_pos), 0.25, color=seat_color, alpha=1.0)
+                    seat = plt.Circle((x_pos, y_pos), 0.21, color=seat_color, alpha=1.0)
                     ax.add_artist(seat)
 
                     if guest_name:
