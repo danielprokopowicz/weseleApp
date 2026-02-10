@@ -1276,11 +1276,10 @@ with tab4:
                     else:
                         ha = 'left'
 
-                    # MNIEJSZA CZCIONKA NAZWISK (fontsize=8)
                     if guest_name:
-                        ax.text(text_x, text_y, guest_name, ha=ha, va='center', rotation=rot, fontsize=8, color=text_color, fontweight='bold')
+                        ax.text(text_x, text_y, guest_name, ha=ha, va='center', rotation=rot, fontsize=9, color=text_color, fontweight='bold')
                     else:
-                        ax.text(x, y, str(i+1), ha='center', va='center', fontsize=8, color='white')
+                        ax.text(x, y, str(i+1), ha='center', va='center', fontsize=9, color='white')
 
                 # Większy zakres osi
                 ax.set_xlim(-2, 2)
@@ -1298,14 +1297,14 @@ with tab4:
                 for i in range(max_miejsc):
                     guest_name = nowa_lista_gosci[i]
                     
-                    # KRZESŁA BARDZIEJ ODSUNIĘTE (x=-1.3 i 1.3)
+                    # KRZESŁA BARDZIEJ ODSUNIĘTE (x=-1.4 i 1.4)
                     if i < side_count:
-                        x = -1.5
+                        x = -1.4
                         # Rozłożenie wzdłuż dłuższego stołu
                         y = np.linspace(-1.2, 1.2, side_count)[i]
                         ha = 'right'
                     else:
-                        x = 1.5
+                        x = 1.4
                         y = np.linspace(-1.2, 1.2, max_miejsc - side_count)[i - side_count]
                         ha = 'left'
 
@@ -1316,10 +1315,10 @@ with tab4:
                     ax.add_artist(seat)
 
                     if guest_name:
-                        ax.text(x, y, guest_name, ha=ha, va='center', fontsize=8, color=text_color, fontweight='bold')
+                        ax.text(x, y, guest_name, ha=ha, va='center', fontsize=9, color=text_color, fontweight='bold')
                     else:
                         seat_x, seat_y = seat.center
-                        ax.text(seat_x, seat_y, str(i+1), ha='center', va='center', fontsize=8, color='white')
+                        ax.text(seat_x, seat_y, str(i+1), ha='center', va='center', fontsize=9, color='white')
 
                 # Większy zakres osi
                 ax.set_xlim(-2.5, 2.5)
