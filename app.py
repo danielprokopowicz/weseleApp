@@ -1212,12 +1212,11 @@ with tab4:
         if wybrany_stol_id:
             st.subheader(f"Edycja: {wybrany_stol_id}")
             
-            # Pobieramy dane wybranego stołu
+            # Pobieramy dane
             row = df_stoly[df_stoly["Numer"] == wybrany_stol_id].iloc[0]
             max_miejsc = int(row["Liczba_Miejsc"])
             ksztalt_stolu = row["Ksztalt"]
             
-            # Parsowanie listy gości
             obecni_goscie_str = str(row["Goscie_Lista"])
             if ";" in obecni_goscie_str:
                 lista_gosci = obecni_goscie_str.split(";")
@@ -1228,11 +1227,10 @@ with tab4:
                 lista_gosci += [""] * (max_miejsc - len(lista_gosci))
             lista_gosci = lista_gosci[:max_miejsc]
 
-            # --- FORMULARZ ROZSADZANIA ---
+            # --- FORMULARZ ---
             with st.expander("📝 Przypisz gości do miejsc", expanded=True):
                 nowa_lista_gosci = []
                 c_a, c_b = st.columns(2)
-                
                 for i in range(max_miejsc):
                     col_to_use = c_a if i % 2 == 0 else c_b
                     with col_to_use:
@@ -1244,107 +1242,123 @@ with tab4:
                     idx = int(df_stoly[df_stoly["Numer"] == wybrany_stol_id].index[0] + 2)
                     worksheet_stoly.update_cell(idx, 4, zapis_string)
                     st.cache_data.clear()
-                    st.success("Zapisano gości!")
+                    st.success("Zapisano!")
                     st.rerun()
 
             # --- WIZUALIZACJA ---
             st.write("---")
             st.write(f"**Podgląd: {ksztalt_stolu} ({max_miejsc} os.)**")
             
-            fig, ax = plt.subplots(figsize=(10, 8))
+            # ZWIĘKSZAMY FIGURĘ (12x10 cali), żeby detale były wyraźne
+            fig, ax = plt.subplots(figsize=(12, 10))
             fig.patch.set_alpha(0)
             ax.patch.set_alpha(0)
             ax.set_aspect('equal')
             ax.axis('off')
 
-            # --- DEFINICJA KOLORÓW ---
+            # --- KOLORY ---
             table_color = '#8B4513'  # Brązowy
             seat_color  = '#1B4D3E'  # Butelkowa zieleń
-            text_color  = 'white'    # Biały tekst
-            edge_color  = '#4a3b2a'  # Ciemny obrys
+            text_color  = 'white'
+            edge_color  = '#3e2723'  # Ciemny obrys
 
             if ksztalt_stolu == "Okrągły":
-                # Stół (promień 0.8)
-                circle = plt.Circle((0, 0), 0.8, color=table_color, ec=edge_color, lw=2)
+                # Promienie (odległości od środka)
+                R_STOL = 0.8
+                R_KRZESLO_SRODEK = 1.1  # Gdzie jest kropka krzesła
+                R_TEKST = 1.35          # Gdzie zaczyna się tekst (bliżej krzesła)
+
+                # Stół
+                circle = plt.Circle((0, 0), R_STOL, color=table_color, ec=edge_color, lw=3)
                 ax.add_artist(circle)
-                ax.text(0, 0, wybrany_stol_id, ha='center', va='center', fontsize=12, fontweight='bold', color='white')
+                ax.text(0, 0, wybrany_stol_id, ha='center', va='center', fontsize=14, fontweight='bold', color='white')
 
                 for i in range(max_miejsc):
-                    # Obliczamy kąt w radianach
                     angle = 2 * np.pi * i / max_miejsc
                     
-                    # Pozycja KRZESŁA (Stały promień 1.15 od środka)
-                    chair_x = 1.15 * np.cos(angle)
-                    chair_y = 1.15 * np.sin(angle)
+                    # Pozycja krzesła
+                    cx = R_KRZESLO_SRODEK * np.cos(angle)
+                    cy = R_KRZESLO_SRODEK * np.sin(angle)
                     
-                    seat = plt.Circle((chair_x, chair_y), 0.15, color=seat_color, alpha=1.0)
+                    # Rysujemy krzesło
+                    seat = plt.Circle((cx, cy), 0.18, color=seat_color, alpha=1.0)
                     ax.add_artist(seat)
                     
                     guest_name = nowa_lista_gosci[i]
                     
-                    # --- NAPRAWA POZYCJI NAPISÓW ---
-                    # 1. Napisy są zawsze w stałej odległości od środka (Promień 1.5)
-                    text_x = 1.5 * np.cos(angle)
-                    text_y = 1.5 * np.sin(angle)
+                    # Obliczamy pozycję tekstu
+                    tx = R_TEKST * np.cos(angle)
+                    ty = R_TEKST * np.sin(angle)
                     
-                    # 2. Obliczamy kąt w stopniach
-                    rot = np.degrees(angle)
+                    # Kąt obrotu tekstu w stopniach
+                    rot_deg = np.degrees(angle)
                     
-                    # 3. Logika wyrównania (Alignment)
-                    # Jeśli cosinus jest dodatni (prawa strona wykresu) -> tekst wyrównujemy do lewej
-                    # Jeśli cosinus jest ujemny (lewa strona wykresu) -> tekst wyrównujemy do prawej i obracamy o 180 stopni
-                    if np.cos(angle) >= 0:
-                        ha = 'left'
-                        final_rot = rot
+                    # Logika czytelności (żeby tekst nie był do góry nogami po lewej stronie)
+                    # rotation_mode='anchor' to KLUCZ do nierozjeżdżania się napisów!
+                    if 90 < rot_deg < 270:
+                        rot_deg += 180
+                        ha = 'right'  # Tekst kończy się przy krześle
                     else:
-                        ha = 'right'
-                        final_rot = rot + 180 # Obrót żeby tekst nie był do góry nogami
+                        ha = 'left'   # Tekst zaczyna się przy krześle
 
                     if guest_name:
-                        ax.text(text_x, text_y, guest_name, ha=ha, va='center', rotation=final_rot, fontsize=8, color=text_color, fontweight='bold')
+                        # fontsize=10 (nieco większe), rotation_mode='anchor' (kluczowe!)
+                        ax.text(tx, ty, guest_name, ha=ha, va='center', 
+                                rotation=rot_deg, rotation_mode='anchor', 
+                                fontsize=10, color=text_color, fontweight='bold')
                     else:
-                        ax.text(chair_x, chair_y, str(i+1), ha='center', va='center', fontsize=8, color='white')
+                        ax.text(cx, cy, str(i+1), ha='center', va='center', fontsize=9, color='white')
 
-                ax.set_xlim(-2.5, 2.5)
-                ax.set_ylim(-2.5, 2.5)
+                # Zacieśniamy granice ("ZOOM"), żeby stół był większy
+                limit = 2.2
+                ax.set_xlim(-limit, limit)
+                ax.set_ylim(-limit, limit)
 
             elif ksztalt_stolu == "Prostokątny":
-                # Stół
-                rect = plt.Rectangle((-0.75, -1.5), 1.5, 3, color=table_color, ec=edge_color, lw=2)
+                # Wymiary stołu
+                W_STOL = 1.6
+                H_STOL = 3.2
+                
+                rect = plt.Rectangle((-W_STOL/2, -H_STOL/2), W_STOL, H_STOL, color=table_color, ec=edge_color, lw=3)
                 ax.add_artist(rect)
-                ax.text(0, 0, wybrany_stol_id, ha='center', va='center', rotation=90, fontsize=12, fontweight='bold', color='white')
+                ax.text(0, 0, wybrany_stol_id, ha='center', va='center', rotation=90, fontsize=14, fontweight='bold', color='white')
 
                 side_count = (max_miejsc + 1) // 2
+                
+                # Odległości
+                DIST_X = 1.3  # Jak daleko od środka w poziomie są krzesła
                 
                 for i in range(max_miejsc):
                     guest_name = nowa_lista_gosci[i]
                     
-                    # --- ODSUNIĘCIE KRZESEŁ ---
-                    # Zwiększyłem odległość X z 1.3 na 1.5
                     if i < side_count:
-                        # Lewa strona
-                        chair_x = -1.5
-                        text_x = -1.75 # Tekst jeszcze bardziej w lewo
-                        y = np.linspace(-1.2, 1.2, side_count)[i]
+                        # LEWA STRONA
+                        x_pos = -DIST_X
+                        # Rozkładamy równomiernie w pionie
+                        y_pos = np.linspace(-H_STOL/2 + 0.4, H_STOL/2 - 0.4, side_count)[i]
                         ha = 'right'
+                        text_offset_x = -0.25 # Przesunięcie tekstu względem krzesła w lewo
                     else:
-                        # Prawa strona
-                        chair_x = 1.5
-                        text_x = 1.75 # Tekst jeszcze bardziej w prawo
-                        y = np.linspace(-1.2, 1.2, max_miejsc - side_count)[i - side_count]
+                        # PRAWA STRONA
+                        x_pos = DIST_X
+                        y_pos = np.linspace(-H_STOL/2 + 0.4, H_STOL/2 - 0.4, max_miejsc - side_count)[i - side_count]
                         ha = 'left'
+                        text_offset_x = 0.25 # Przesunięcie tekstu względem krzesła w prawo
 
                     # Krzesło
-                    seat = plt.Circle((chair_x, y), 0.15, color=seat_color, alpha=1.0)
+                    seat = plt.Circle((x_pos, y_pos), 0.18, color=seat_color, alpha=1.0)
                     ax.add_artist(seat)
 
                     if guest_name:
-                        ax.text(text_x, y, guest_name, ha=ha, va='center', fontsize=8, color=text_color, fontweight='bold')
+                        # Tekst odsunięty od kropki o text_offset_x
+                        ax.text(x_pos + text_offset_x, y_pos, guest_name, ha=ha, va='center', 
+                                fontsize=10, color=text_color, fontweight='bold')
                     else:
-                        ax.text(chair_x, y, str(i+1), ha='center', va='center', fontsize=8, color='white')
+                        ax.text(x_pos, y_pos, str(i+1), ha='center', va='center', fontsize=9, color='white')
 
-                ax.set_xlim(-3.0, 3.0) # Zwiększony zakres dla prostokąta
-                ax.set_ylim(-2.5, 2.5)
+                # Zacieśniamy granice ("ZOOM")
+                ax.set_xlim(-2.8, 2.8)
+                ax.set_ylim(-2.8, 2.8)
 
             st.pyplot(fig, use_container_width=True)
             
