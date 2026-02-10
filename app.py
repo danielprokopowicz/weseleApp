@@ -1188,29 +1188,6 @@ with tab4:
 
             st.info("Brak stołów. Dodaj pierwszy!")
 
-
-
-    # --- KOLUMNA PRAWA: EDYCJA I WIZUALIZACJA ---
-    with col_right:
-        if wybrany_stol_id:
-            st.subheader(f"Edycja: {wybrany_stol_id}")
-            
-            # Pobieramy dane wybranego stołu
-            row = df_stoly[df_stoly["Numer"] == wybrany_stol_id].iloc[0]
-            max_miejsc = int(row["Liczba_Miejsc"])
-            ksztalt_stolu = row["Ksztalt"]
-            
-            # Parsowanie listy gości
-            obecni_goscie_str = str(row["Goscie_Lista"])
-            if ";" in obecni_goscie_str:
-                lista_gosci = obecni_goscie_str.split(";")
-            else:
-                lista_gosci = [""] * max_miejsc
-            
-            if len(lista_gosci) < max_miejsc:
-                lista_gosci += [""] * (max_miejsc - len(lista_gosci))
-            lista_gosci = lista_gosci[:max_miejsc]
-
             # --- FORMULARZ ROZSADZANIA ---
             with st.expander("📝 Przypisz gości do miejsc", expanded=True):
                 nowa_lista_gosci = []
