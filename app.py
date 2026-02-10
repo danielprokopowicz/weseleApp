@@ -1191,313 +1191,142 @@ with tab4:
 
 
     # --- KOLUMNA PRAWA: EDYCJA I WIZUALIZACJA ---
-
     with col_right:
-
         if wybrany_stol_id:
-
             st.subheader(f"Edycja: {wybrany_stol_id}")
-
             
-
             # Pobieramy dane wybranego stołu
-
             row = df_stoly[df_stoly["Numer"] == wybrany_stol_id].iloc[0]
-
             max_miejsc = int(row["Liczba_Miejsc"])
-
             ksztalt_stolu = row["Ksztalt"]
-
             
-
-            # Parsowanie listy gości (rozdzielone średnikami)
-
+            # Parsowanie listy gości
             obecni_goscie_str = str(row["Goscie_Lista"])
-
             if ";" in obecni_goscie_str:
-
                 lista_gosci = obecni_goscie_str.split(";")
-
             else:
-
-                # Fallback jeśli format jest pusty lub inny
-
                 lista_gosci = [""] * max_miejsc
-
             
-
-            # Upewnij się, że lista ma odpowiednią długość (jakby ktoś zmienił liczbę miejsc)
-
             if len(lista_gosci) < max_miejsc:
-
                 lista_gosci += [""] * (max_miejsc - len(lista_gosci))
-
             lista_gosci = lista_gosci[:max_miejsc]
 
-
-
             # --- FORMULARZ ROZSADZANIA ---
-
             with st.expander("📝 Przypisz gości do miejsc", expanded=True):
-
                 nowa_lista_gosci = []
-
-                # Tworzymy inputy w dwóch kolumnach dla oszczędności miejsca
-
                 c_a, c_b = st.columns(2)
-
                 
-
                 for i in range(max_miejsc):
-
                     col_to_use = c_a if i % 2 == 0 else c_b
-
                     with col_to_use:
-
-                        # Wpisujemy aktualnego gościa jako value
-
                         val = st.text_input(f"Miejsce {i+1}", value=lista_gosci[i], key=f"seat_{wybrany_stol_id}_{i}")
-
                         nowa_lista_gosci.append(val)
-
                 
-
                 if st.button("💾 Zapisz układ stołu"):
-
-                    # Sklejamy listę z powrotem w string
-
                     zapis_string = ";".join(nowa_lista_gosci)
-
-                    
-
-                    # Znajdujemy indeks wiersza w Google Sheets
-
-                    # POPRAWKA: Rzutowanie na int(), bo pandas zwraca numpy.int64
-
                     idx = int(df_stoly[df_stoly["Numer"] == wybrany_stol_id].index[0] + 2)
-
-                    
-
-                    # Aktualizujemy komórkę D (Goscie_Lista to 4. kolumna)
-
                     worksheet_stoly.update_cell(idx, 4, zapis_string)
-
-                    st.cache_data.clear() # Czyścimy cache
-
+                    st.cache_data.clear()
                     st.success("Zapisano gości!")
-
                     st.rerun()
 
-
-
-            # --- WIZUALIZACJA (RYSOWANIE) ---
-
+            # --- WIZUALIZACJA (NOWE KOLORY) ---
             st.write("---")
-
             st.write(f"**Podgląd: {ksztalt_stolu} ({max_miejsc} os.)**")
-
             
-
+            # Tworzymy wykres z przezroczystym tłem
             fig, ax = plt.subplots(figsize=(6, 6))
-
+            fig.patch.set_alpha(0) # Przezroczyste tło figury
+            ax.patch.set_alpha(0)  # Przezroczyste tło osi
             ax.set_aspect('equal')
+            ax.axis('off')
 
-            ax.axis('off') # Ukrywamy osie
-
-
-
-            # Kolory
-
-            table_color = '#e0e0e0' # Szary
-
-            seat_color = '#4CAF50' # Zielony
-
-            text_color = 'black'
-
-
+            # --- DEFINICJA KOLORÓW ---
+            table_color = '#F5F5DC'  # Beżowy
+            seat_color  = '#1B4D3E'  # Butelkowa zieleń
+            text_color  = 'white'    # Biały tekst
+            edge_color  = '#4a3b2a'  # Ciemny brąz (obrys stołu)
 
             if ksztalt_stolu == "Okrągły":
-
                 # Rysujemy stół (koło)
-
-                circle = plt.Circle((0, 0), 0.6, color=table_color, ec='black')
-
+                circle = plt.Circle((0, 0), 0.6, color=table_color, ec=edge_color, lw=2)
                 ax.add_artist(circle)
-
-                ax.text(0, 0, wybrany_stol_id, ha='center', va='center', fontsize=12, fontweight='bold')
-
-
-
-                # Rysujemy miejsca dookoła
+                # Nazwa stołu na środku (czarna lub brązowa dla kontrastu z beżem)
+                ax.text(0, 0, wybrany_stol_id, ha='center', va='center', fontsize=12, fontweight='bold', color=edge_color)
 
                 for i in range(max_miejsc):
-
                     angle = 2 * np.pi * i / max_miejsc
-
                     x = 0.85 * np.cos(angle)
-
                     y = 0.85 * np.sin(angle)
-
                     
-
-                    # Kropka miejsca
-
-                    seat = plt.Circle((x, y), 0.1, color=seat_color, alpha=0.7)
-
+                    # Krzesło (kropka)
+                    seat = plt.Circle((x, y), 0.1, color=seat_color, alpha=1.0)
                     ax.add_artist(seat)
-
                     
-
-                    # Nazwisko gościa (rotacja tekstu dla czytelności)
-
-                    guest_name = nowa_lista_gosci[i] # Bierzemy z inputów (live update) lub z bazy
-
-                    
-
-                    # Przesunięcie tekstu na zewnątrz
-
+                    guest_name = nowa_lista_gosci[i]
                     text_x = 1.1 * np.cos(angle)
-
                     text_y = 1.1 * np.sin(angle)
-
                     
-
                     rot = np.degrees(angle)
-
-                    # Obracamy tekst żeby był czytelny (lewa strona vs prawa)
-
                     if 90 < rot < 270:
-
                         rot += 180
-
                         ha = 'right'
-
                     else:
-
                         ha = 'left'
 
-
-
+                    # Napis imienia (biały)
                     if guest_name:
-
-                        ax.text(text_x, text_y, guest_name, ha=ha, va='center', rotation=rot, fontsize=9)
-
+                        ax.text(text_x, text_y, guest_name, ha=ha, va='center', rotation=rot, fontsize=9, color=text_color, fontweight='bold')
                     else:
-
-                        ax.text(text_x, text_y, str(i+1), ha=ha, va='center', rotation=rot, fontsize=8, color='grey')
-
-
+                        # Numer miejsca na krześle (biały, bo na zielonym tle)
+                        ax.text(x, y, str(i+1), ha='center', va='center', fontsize=7, color='white')
 
                 ax.set_xlim(-1.5, 1.5)
-
                 ax.set_ylim(-1.5, 1.5)
-
-
 
             elif ksztalt_stolu == "Prostokątny":
-
-                # Rysujemy prostokąt
-
-                rect = plt.Rectangle((-0.5, -1), 1, 2, color=table_color, ec='black')
-
+                # Rysujemy stół (prostokąt)
+                rect = plt.Rectangle((-0.5, -1), 1, 2, color=table_color, ec=edge_color, lw=2)
                 ax.add_artist(rect)
-
-                ax.text(0, 0, wybrany_stol_id, ha='center', va='center', rotation=90, fontsize=12, fontweight='bold')
-
-
-
-                # Dzielimy miejsca na dwie strony: lewa i prawa
-
-                # (Dla uproszczenia: połowa po lewej, połowa po prawej)
+                # Nazwa stołu (obrócona)
+                ax.text(0, 0, wybrany_stol_id, ha='center', va='center', rotation=90, fontsize=12, fontweight='bold', color=edge_color)
 
                 side_count = (max_miejsc + 1) // 2
-
                 
-
                 for i in range(max_miejsc):
-
                     guest_name = nowa_lista_gosci[i]
-
                     
-
                     if i < side_count:
-
-                        # Lewa strona
-
-                        x = -0.7
-
-                        # Rozkładamy równomiernie w pionie od -0.8 do 0.8
-
+                        x = -0.85
                         y = np.linspace(-0.8, 0.8, side_count)[i]
-
                         ha = 'right'
-
                     else:
-
-                        # Prawa strona
-
-                        x = 0.7
-
+                        x = 0.85
                         y = np.linspace(-0.8, 0.8, max_miejsc - side_count)[i - side_count]
-
                         ha = 'left'
 
-
-
-                    # Kropka
-
-                    seat = plt.Circle((x if x>0 else x+0.1, y), 0.1, color=seat_color, alpha=0.7)
-
-                    # (drobna korekta pozycji kropki względem stołu)
-
+                    # Krzesło
+                    seat = plt.Circle((x if x>0 else x+0.1, y), 0.1, color=seat_color, alpha=1.0)
                     if i < side_count: seat.center = (-0.6, y)
-
                     else: seat.center = (0.6, y)
-
-                    
-
                     ax.add_artist(seat)
 
-
-
                     if guest_name:
-
-                        ax.text(x, y, guest_name, ha=ha, va='center', fontsize=9)
-
+                        ax.text(x, y, guest_name, ha=ha, va='center', fontsize=9, color=text_color, fontweight='bold')
                     else:
-
-                        ax.text(x, y, str(i+1), ha=ha, va='center', fontsize=8, color='grey')
-
-
+                        # Numer miejsca na krześle
+                        seat_x, seat_y = seat.center
+                        ax.text(seat_x, seat_y, str(i+1), ha='center', va='center', fontsize=7, color='white')
 
                 ax.set_xlim(-1.5, 1.5)
-
                 ax.set_ylim(-1.5, 1.5)
 
-
-
-            # Wyświetlamy wykres
-
             st.pyplot(fig, use_container_width=True)
-
             
-
-            # Przycisk usunięcia stołu
-
             st.write("---")
-
             if st.button("🗑️ Usuń ten stół"):
-
-                # Znajdź indeks i usuń
-
-                # POPRAWKA: Rzutowanie na int(), bo pandas zwraca numpy.int64
-
                 idx = int(df_stoly[df_stoly["Numer"] == wybrany_stol_id].index[0] + 2)
-
                 worksheet_stoly.delete_rows(idx)
-
                 st.cache_data.clear()
-
                 st.warning("Usunięto stół!")
-
                 st.rerun()
