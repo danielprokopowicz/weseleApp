@@ -1334,13 +1334,13 @@ with tab4:
                         x_pos = -DIST_X
                         y_pos = np.linspace(-H_STOL/2 + 0.4, H_STOL/2 - 0.4, side_count)[i]
                         ha = 'right'
-                        text_offset_x = -0.20
+                        text_offset_x = -0.25
                     else:
                         # PRAWA
                         x_pos = DIST_X
                         y_pos = np.linspace(-H_STOL/2 + 0.4, H_STOL/2 - 0.4, max_miejsc - side_count)[i - side_count]
                         ha = 'left'
-                        text_offset_x = 0.20
+                        text_offset_x = 0.25
 
                     # Krzesło
                     seat = plt.Circle((x_pos, y_pos), 0.18, color=seat_color, alpha=1.0)
