@@ -1265,14 +1265,72 @@ with tab4:
             wybrany_stol_id = None
             st.info("Brak stołów. Dodaj pierwszy!")
 
+    # ==========================
+# ZAKŁADKA 4: STOŁY (NOWA)
+# ==========================
+with tab4:
+    st.header("🍽️ Rozsadzanie Gości przy Stołach")
+
+    # 1. Pobieramy dane stołów
+    try:
+        df_stoly = pobierz_dane(worksheet_stoly)
+    except Exception as e:
+        st.error("Problem z zakładką 'Stoly'. Sprawdź czy istnieje.")
+        st.stop()
+
+    # Zabezpieczenie kolumn
+    cols_stoly = ["Numer", "Ksztalt", "Liczba_Miejsc", "Goscie_Lista"]
+    if df_stoly.empty:
+        df_stoly = pd.DataFrame(columns=cols_stoly)
+    
+    # ZABEZPIECZENIE: Usuwamy spacje i tworzymy brakujące kolumny
+    if not df_stoly.empty:
+        df_stoly.columns = df_stoly.columns.str.strip()
+    for c in cols_stoly:
+        if c not in df_stoly.columns: df_stoly[c] = ""
+
+    # Konwersja danych
+    if not df_stoly.empty:
+        df_stoly["Numer"] = df_stoly["Numer"].astype(str)
+        df_stoly["Liczba_Miejsc"] = pd.to_numeric(df_stoly["Liczba_Miejsc"], errors='coerce').fillna(0).astype(int)
+
+    # --- KOLUMNA LEWA: LISTA I DODAWANIE ---
+    col_left, col_right = st.columns([1, 2])
+
+    with col_left:
+        st.subheader("➕ Dodaj Stół")
+        with st.form("dodaj_stol_form"):
+            nr_stolu = st.text_input("Numer/Nazwa Stołu", placeholder="np. Stół 1 lub Wiejski")
+            ksztalt = st.selectbox("Kształt", ["Okrągły", "Prostokątny"])
+            miejsca = st.number_input("Liczba Miejsc", min_value=1, max_value=24, value=8)
+            submitted = st.form_submit_button("Dodaj Stół")
+            
+            if submitted and nr_stolu:
+                # Goscie_Lista to będzie string z imionami oddzielonymi średnikiem
+                pusta_lista = ";".join(["" for _ in range(miejsca)])
+                zapisz_nowy_wiersz(worksheet_stoly, [nr_stolu, ksztalt, miejsca, pusta_lista])
+                st.toast(f"Dodano stół: {nr_stolu}")
+                st.rerun()
+
+        st.write("---")
+        st.subheader("📋 Lista Stołów")
+        
+        # Wybór stołu do edycji
+        if not df_stoly.empty:
+            list_of_tables = df_stoly["Numer"].tolist()
+            wybrany_stol_id = st.radio("Wybierz stół do edycji:", list_of_tables)
+        else:
+            wybrany_stol_id = None
+            st.info("Brak stołów. Dodaj pierwszy!")
+
     # --- KOLUMNA PRAWA: EDYCJA I WIZUALIZACJA ---
     with col_right:
         if wybrany_stol_id:
             st.subheader(f"Edycja: {wybrany_stol_id}")
             
-            # --- KLUCZOWE MIEJSCE: Pobranie danych o stole (Tu był błąd NameError) ---
+            # --- POBIERANIE DANYCH ---
             row = df_stoly[df_stoly["Numer"] == wybrany_stol_id].iloc[0]
-            max_miejsc = int(row["Liczba_Miejsc"]) # Definicja zmiennej max_miejsc
+            max_miejsc = int(row["Liczba_Miejsc"]) # Definicja max_miejsc JEST TUTAJ
             ksztalt_stolu = row["Ksztalt"]
             
             # Parsowanie listy gości
@@ -1282,7 +1340,7 @@ with tab4:
             else:
                 lista_gosci = [""] * max_miejsc
             
-            # Upewnij się, że lista ma odpowiednią długość
+            # Zabezpieczenie długości listy
             if len(lista_gosci) < max_miejsc:
                 lista_gosci += [""] * (max_miejsc - len(lista_gosci))
             lista_gosci = lista_gosci[:max_miejsc]
@@ -1300,7 +1358,7 @@ with tab4:
                 
                 if st.button("💾 Zapisz układ stołu"):
                     zapis_string = ";".join(nowa_lista_gosci)
-                    # POPRAWKA JSON: rzutowanie na int()
+                    # POPRAWKA: Rzutowanie na int() dla gspread
                     idx = int(df_stoly[df_stoly["Numer"] == wybrany_stol_id].index[0] + 2)
                     worksheet_stoly.update_cell(idx, 4, zapis_string)
                     st.cache_data.clear()
@@ -1319,10 +1377,10 @@ with tab4:
             ax.axis('off')
 
             # Kolory
-            table_color = '#8B4513'  # Brązowy
-            seat_color  = '#1B4D3E'  # Butelkowa zieleń
-            text_color  = 'white'
-            edge_color  = '#3e2723'
+            table_color = '#8B4513'  # Brązowy stół
+            seat_color  = '#1B4D3E'  # Butelkowa zieleń krzeseł
+            text_color  = 'white'    # Biały tekst
+            edge_color  = '#3e2723'  # Ciemny obrys
 
             if ksztalt_stolu == "Okrągły":
                 # Stół
@@ -1331,9 +1389,10 @@ with tab4:
                 ax.text(0, 0, wybrany_stol_id, ha='center', va='center', fontsize=24, fontweight='bold', color='white')
 
                 for i in range(max_miejsc):
+                    # Kąt w radianach
                     angle = 2 * np.pi * i / max_miejsc
                     
-                    # Pozycja krzesła
+                    # Pozycja krzesła (Promień 1.1)
                     cx = 1.1 * np.cos(angle)
                     cy = 1.1 * np.sin(angle)
                     
@@ -1343,12 +1402,14 @@ with tab4:
                     
                     guest_name = nowa_lista_gosci[i]
                     
-                    # Pozycja tekstu
+                    # Pozycja tekstu (Promień 1.35 - bardziej odsunięte)
                     tx = 1.35 * np.cos(angle)
                     ty = 1.35 * np.sin(angle)
                     
+                    # Kąt obrotu w stopniach
                     rot_deg = np.degrees(angle)
                     
+                    # Logika wyrównania tekstu
                     if 90 < rot_deg < 270:
                         rot_deg += 180
                         ha = 'right'
@@ -1362,12 +1423,13 @@ with tab4:
                     else:
                         ax.text(cx, cy, str(i+1), ha='center', va='center', fontsize=14, color='white')
 
+                # Granice rysunku (ZOOM)
                 limit = 2.2
                 ax.set_xlim(-limit, limit)
                 ax.set_ylim(-limit, limit)
 
             elif ksztalt_stolu == "Prostokątny":
-                # Wymiary
+                # Wymiary stołu
                 W_STOL = 1.6
                 H_STOL = 3.2
                 
@@ -1377,25 +1439,26 @@ with tab4:
 
                 side_count = (max_miejsc + 1) // 2
                 
+                # Odległość krzeseł od środka (X)
                 DIST_X = 1.3
                 
                 for i in range(max_miejsc):
                     guest_name = nowa_lista_gosci[i]
                     
                     if i < side_count:
-                        # LEWA
+                        # LEWA STRONA
                         x_pos = -DIST_X
                         y_pos = np.linspace(-H_STOL/2 + 0.4, H_STOL/2 - 0.4, side_count)[i]
                         ha = 'right'
                         text_offset_x = -0.25
                     else:
-                        # PRAWA
+                        # PRAWA STRONA
                         x_pos = DIST_X
                         y_pos = np.linspace(-H_STOL/2 + 0.4, H_STOL/2 - 0.4, max_miejsc - side_count)[i - side_count]
                         ha = 'left'
                         text_offset_x = 0.25
 
-                    # Krzesło
+                    # Rysujemy krzesło
                     seat = plt.Circle((x_pos, y_pos), 0.18, color=seat_color, alpha=1.0)
                     ax.add_artist(seat)
 
