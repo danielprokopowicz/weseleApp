@@ -107,7 +107,7 @@ except Exception as e:
 
 
 # --- FUNKCJE POMOCNICZE ---
-@st.cache_data(ttl=60)
+
 def pobierz_dane(_worksheet):
 
     dane = _worksheet.get_all_records()
@@ -890,50 +890,51 @@ if not df_obsluga.empty:
 
 # ==========================
 
-# ==========================
-# ZAKŁADKA 3: LISTA ZADAŃ (TO-DO)
-# ==========================
 with tab3:
+
     st.header("✅ Co trzeba zrobić?")
 
-    # --- FUNKCJA DODAWANIA ---
     def dodaj_zadanie():
+
         tresc = st.session_state.get("todo_tresc", "")
-        termin = st.session_state.get("todo_data", date.today())        
+
+        termin = st.session_state.get("todo_data", date.today())       
+
+
 
         if tresc:
-            termin_str = termin.strftime("%Y-%m-%d")            
+
+            termin_str = termin.strftime("%Y-%m-%d")           
+
             zapisz_nowy_wiersz(worksheet_zadania, [tresc, termin_str, "Nie"])
+
             st.toast(f"📅 Dodano zadanie: {tresc}")
+
             st.session_state["todo_tresc"] = ""
+
         else:
+
             st.warning("Wpisz treść zadania!")
 
-    # --- POBIERANIE DANYCH ---
     try:
+
         df_zadania = pobierz_dane(worksheet_zadania)
+
     except Exception as e:
+
         st.error("Błąd danych. Sprawdź nagłówki w zakładce Zadania.")
+
         st.stop()
 
-    # --- TUTAJ JEST NAPRAWA BŁĘDU KEYERROR (STRAŻNIK KOLUMN) ---
-    # 1. Jeśli puste, stwórz pustą ramkę z nagłówkami
+
+
     if df_zadania.empty:
+
         df_zadania = pd.DataFrame(columns=["Zadanie", "Termin", "Czy_Zrobione"])
-    
-    # 2. Usuń spacje z nazw istniejących kolumn (np. "Zadanie " -> "Zadanie")
-    df_zadania.columns = df_zadania.columns.str.strip()
-    
-    # 3. Upewnij się, że wymagane kolumny istnieją. Jak nie, stwórz je.
-    wymagane_kolumny_todo = ["Zadanie", "Termin", "Czy_Zrobione"]
-    for col in wymagane_kolumny_todo:
-        if col not in df_zadania.columns:
-            df_zadania[col] = "" # Tworzymy pustą kolumnę, żeby program się nie wywalił
-    # -----------------------------------------------------------
 
-    # --- FORMULARZ ---
+
+
     with st.expander("➕ Dodaj nowe zadanie", expanded=False):
-
 
         c1, c2 = st.columns([2, 1])
 
