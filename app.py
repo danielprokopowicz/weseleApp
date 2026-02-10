@@ -1242,10 +1242,10 @@ with tab4:
             ax.axis('off')
 
             # --- DEFINICJA KOLORÓW ---
-            table_color = '#8B4513'  # BRĄZOWY stół
+            table_color = '#a95e13'  # BRĄZOWY stół
             seat_color  = '#1B4D3E'  # Butelkowa zieleń
             text_color  = 'white'    # Biały tekst
-            edge_color  = '#4a3b2a'  # Ciemny brąz (obrys)
+            edge_color  = '#7B3F00'  # Ciemny brąz (obrys)
 
             if ksztalt_stolu == "Okrągły":
                 # WIĘKSZY STÓŁ (promień 0.8)
@@ -1266,8 +1266,8 @@ with tab4:
                     
                     guest_name = nowa_lista_gosci[i]
                     # Tekst jeszcze dalej
-                    text_x = 1.4 * np.cos(angle)
-                    text_y = 1.4 * np.sin(angle)
+                    text_x = 1.5 * np.cos(angle)
+                    text_y = 1.5 * np.sin(angle)
                     
                     rot = np.degrees(angle)
                     if 90 < rot < 270:
@@ -1300,12 +1300,12 @@ with tab4:
                     
                     # KRZESŁA BARDZIEJ ODSUNIĘTE (x=-1.3 i 1.3)
                     if i < side_count:
-                        x = -1.3
+                        x = -1.15
                         # Rozłożenie wzdłuż dłuższego stołu
                         y = np.linspace(-1.2, 1.2, side_count)[i]
                         ha = 'right'
                     else:
-                        x = 1.3
+                        x = 1.15
                         y = np.linspace(-1.2, 1.2, max_miejsc - side_count)[i - side_count]
                         ha = 'left'
 
@@ -1315,7 +1315,6 @@ with tab4:
                     else: seat.center = (1.15, y)
                     ax.add_artist(seat)
 
-                    # MNIEJSZA CZCIONKA NAZWISK (fontsize=8)
                     if guest_name:
                         ax.text(x, y, guest_name, ha=ha, va='center', fontsize=8, color=text_color, fontweight='bold')
                     else:
