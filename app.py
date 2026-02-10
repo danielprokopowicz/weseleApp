@@ -1266,8 +1266,8 @@ with tab4:
                     
                     guest_name = nowa_lista_gosci[i]
                     # Tekst jeszcze dalej
-                    text_x = 1.4 * np.cos(angle)
-                    text_y = 1.4 * np.sin(angle)
+                    text_x = 1.75 * np.cos(angle)
+                    text_y = 1.75 * np.sin(angle)
                     
                     rot = np.degrees(angle)
                     if 90 < rot < 270:
