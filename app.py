@@ -1250,17 +1250,17 @@ with tab4:
             st.write(f"**Podgląd: {ksztalt_stolu} ({max_miejsc} os.)**")
             
             # ZWIĘKSZAMY FIGURĘ (12x10 cali), żeby detale były wyraźne
-            fig, ax = plt.subplots(figsize=(12, 10))
+            fig, ax = plt.subplots(figsize=(20, 16))
             fig.patch.set_alpha(0)
             ax.patch.set_alpha(0)
             ax.set_aspect('equal')
             ax.axis('off')
 
             # --- KOLORY ---
-            table_color = '#8B4513'  # Brązowy
+            table_color = '#A95E13'  # Brązowy
             seat_color  = '#1B4D3E'  # Butelkowa zieleń
             text_color  = 'white'
-            edge_color  = '#3e2723'  # Ciemny obrys
+            edge_color  = '#7B3F00'  # Ciemny obrys
 
             if ksztalt_stolu == "Okrągły":
                 # Promienie (odległości od środka)
