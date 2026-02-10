@@ -1249,7 +1249,7 @@ with tab4:
             st.write("---")
             st.write(f"**Podgląd: {ksztalt_stolu} ({max_miejsc} os.)**")
             
-            # ZWIĘKSZAMY FIGURĘ (12x10 cali), żeby detale były wyraźne
+            # --- ZMIANA TUTAJ: ZWIĘKSZONY ROZMIAR GRAFIKI (20x16 cali) ---
             fig, ax = plt.subplots(figsize=(20, 16))
             fig.patch.set_alpha(0)
             ax.patch.set_alpha(0)
@@ -1257,21 +1257,22 @@ with tab4:
             ax.axis('off')
 
             # --- KOLORY ---
-            table_color = '#A95E13'  # Brązowy
+            table_color = '#9D5B03'  # Brązowy
             seat_color  = '#1B4D3E'  # Butelkowa zieleń
             text_color  = 'white'
             edge_color  = '#7B3F00'  # Ciemny obrys
 
             if ksztalt_stolu == "Okrągły":
-                # Promienie (odległości od środka)
+                # Promienie
                 R_STOL = 0.8
-                R_KRZESLO_SRODEK = 1.1  # Gdzie jest kropka krzesła
-                R_TEKST = 1.35          # Gdzie zaczyna się tekst (bliżej krzesła)
+                R_KRZESLO_SRODEK = 1.1
+                R_TEKST = 1.35
 
                 # Stół
-                circle = plt.Circle((0, 0), R_STOL, color=table_color, ec=edge_color, lw=3)
+                circle = plt.Circle((0, 0), R_STOL, color=table_color, ec=edge_color, lw=4)
                 ax.add_artist(circle)
-                ax.text(0, 0, wybrany_stol_id, ha='center', va='center', fontsize=14, fontweight='bold', color='white')
+                # Większa czcionka nazwy stołu (24)
+                ax.text(0, 0, wybrany_stol_id, ha='center', va='center', fontsize=24, fontweight='bold', color='white')
 
                 for i in range(max_miejsc):
                     angle = 2 * np.pi * i / max_miejsc
@@ -1286,77 +1287,73 @@ with tab4:
                     
                     guest_name = nowa_lista_gosci[i]
                     
-                    # Obliczamy pozycję tekstu
+                    # Pozycja tekstu
                     tx = R_TEKST * np.cos(angle)
                     ty = R_TEKST * np.sin(angle)
                     
-                    # Kąt obrotu tekstu w stopniach
                     rot_deg = np.degrees(angle)
                     
-                    # Logika czytelności (żeby tekst nie był do góry nogami po lewej stronie)
-                    # rotation_mode='anchor' to KLUCZ do nierozjeżdżania się napisów!
                     if 90 < rot_deg < 270:
                         rot_deg += 180
-                        ha = 'right'  # Tekst kończy się przy krześle
+                        ha = 'right'
                     else:
-                        ha = 'left'   # Tekst zaczyna się przy krześle
+                        ha = 'left'
 
                     if guest_name:
-                        # fontsize=10 (nieco większe), rotation_mode='anchor' (kluczowe!)
+                        # Większa czcionka nazwisk (16)
                         ax.text(tx, ty, guest_name, ha=ha, va='center', 
                                 rotation=rot_deg, rotation_mode='anchor', 
-                                fontsize=10, color=text_color, fontweight='bold')
+                                fontsize=16, color=text_color, fontweight='bold')
                     else:
-                        ax.text(cx, cy, str(i+1), ha='center', va='center', fontsize=9, color='white')
+                        # Większa czcionka numerów (14)
+                        ax.text(cx, cy, str(i+1), ha='center', va='center', fontsize=14, color='white')
 
-                # Zacieśniamy granice ("ZOOM"), żeby stół był większy
                 limit = 2.2
                 ax.set_xlim(-limit, limit)
                 ax.set_ylim(-limit, limit)
 
             elif ksztalt_stolu == "Prostokątny":
-                # Wymiary stołu
+                # Wymiary
                 W_STOL = 1.6
                 H_STOL = 3.2
                 
-                rect = plt.Rectangle((-W_STOL/2, -H_STOL/2), W_STOL, H_STOL, color=table_color, ec=edge_color, lw=3)
+                rect = plt.Rectangle((-W_STOL/2, -H_STOL/2), W_STOL, H_STOL, color=table_color, ec=edge_color, lw=4)
                 ax.add_artist(rect)
-                ax.text(0, 0, wybrany_stol_id, ha='center', va='center', rotation=90, fontsize=14, fontweight='bold', color='white')
+                # Większa czcionka nazwy stołu (24)
+                ax.text(0, 0, wybrany_stol_id, ha='center', va='center', rotation=90, fontsize=24, fontweight='bold', color='white')
 
                 side_count = (max_miejsc + 1) // 2
                 
-                # Odległości
-                DIST_X = 1.3  # Jak daleko od środka w poziomie są krzesła
+                DIST_X = 1.3
                 
                 for i in range(max_miejsc):
                     guest_name = nowa_lista_gosci[i]
                     
                     if i < side_count:
-                        # LEWA STRONA
+                        # LEWA
                         x_pos = -DIST_X
-                        # Rozkładamy równomiernie w pionie
                         y_pos = np.linspace(-H_STOL/2 + 0.4, H_STOL/2 - 0.4, side_count)[i]
                         ha = 'right'
-                        text_offset_x = -0.25 # Przesunięcie tekstu względem krzesła w lewo
+                        text_offset_x = -0.25
                     else:
-                        # PRAWA STRONA
+                        # PRAWA
                         x_pos = DIST_X
                         y_pos = np.linspace(-H_STOL/2 + 0.4, H_STOL/2 - 0.4, max_miejsc - side_count)[i - side_count]
                         ha = 'left'
-                        text_offset_x = 0.25 # Przesunięcie tekstu względem krzesła w prawo
+                        text_offset_x = 0.25
 
                     # Krzesło
                     seat = plt.Circle((x_pos, y_pos), 0.18, color=seat_color, alpha=1.0)
                     ax.add_artist(seat)
 
                     if guest_name:
-                        # Tekst odsunięty od kropki o text_offset_x
+                        # Większa czcionka nazwisk (16)
                         ax.text(x_pos + text_offset_x, y_pos, guest_name, ha=ha, va='center', 
-                                fontsize=10, color=text_color, fontweight='bold')
+                                fontsize=16, color=text_color, fontweight='bold')
                     else:
-                        ax.text(x_pos, y_pos, str(i+1), ha='center', va='center', fontsize=9, color='white')
+                        # Większa czcionka numerów (14)
+                        ax.text(x_pos, y_pos, str(i+1), ha='center', va='center', fontsize=14, color='white')
 
-                # Zacieśniamy granice ("ZOOM")
                 ax.set_xlim(-2.8, 2.8)
                 ax.set_ylim(-2.8, 2.8)
 
