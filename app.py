@@ -1230,42 +1230,44 @@ with tab4:
                     st.success("Zapisano gości!")
                     st.rerun()
 
-            # --- WIZUALIZACJA (NOWE KOLORY) ---
+            # --- WIZUALIZACJA (NOWE KOLORY I ROZMIARY) ---
             st.write("---")
             st.write(f"**Podgląd: {ksztalt_stolu} ({max_miejsc} os.)**")
             
-            # Tworzymy wykres z przezroczystym tłem
-            fig, ax = plt.subplots(figsize=(6, 6))
-            fig.patch.set_alpha(0) # Przezroczyste tło figury
-            ax.patch.set_alpha(0)  # Przezroczyste tło osi
+            # ZWIĘKSZONA GRAFIKA
+            fig, ax = plt.subplots(figsize=(10, 8)) # Większy rozmiar wykresu
+            fig.patch.set_alpha(0)
+            ax.patch.set_alpha(0)
             ax.set_aspect('equal')
             ax.axis('off')
 
             # --- DEFINICJA KOLORÓW ---
-            table_color = '#F5F5DC'  # Beżowy
+            table_color = '#8B4513'  # BRĄZOWY stół
             seat_color  = '#1B4D3E'  # Butelkowa zieleń
             text_color  = 'white'    # Biały tekst
-            edge_color  = '#4a3b2a'  # Ciemny brąz (obrys stołu)
+            edge_color  = '#4a3b2a'  # Ciemny brąz (obrys)
 
             if ksztalt_stolu == "Okrągły":
-                # Rysujemy stół (koło)
-                circle = plt.Circle((0, 0), 0.6, color=table_color, ec=edge_color, lw=2)
+                # WIĘKSZY STÓŁ (promień 0.8)
+                circle = plt.Circle((0, 0), 0.8, color=table_color, ec=edge_color, lw=2)
                 ax.add_artist(circle)
-                # Nazwa stołu na środku (czarna lub brązowa dla kontrastu z beżem)
-                ax.text(0, 0, wybrany_stol_id, ha='center', va='center', fontsize=12, fontweight='bold', color=edge_color)
+                # Nazwa stołu na biało dla kontrastu
+                ax.text(0, 0, wybrany_stol_id, ha='center', va='center', fontsize=12, fontweight='bold', color='white')
 
                 for i in range(max_miejsc):
                     angle = 2 * np.pi * i / max_miejsc
-                    x = 0.85 * np.cos(angle)
-                    y = 0.85 * np.sin(angle)
+                    # KRZESŁA DALEJ I WIĘKSZE
+                    x = 1.1 * np.cos(angle) 
+                    y = 1.1 * np.sin(angle)
                     
-                    # Krzesło (kropka)
-                    seat = plt.Circle((x, y), 0.1, color=seat_color, alpha=1.0)
+                    # Większe krzesło (promień 0.15)
+                    seat = plt.Circle((x, y), 0.15, color=seat_color, alpha=1.0)
                     ax.add_artist(seat)
                     
                     guest_name = nowa_lista_gosci[i]
-                    text_x = 1.1 * np.cos(angle)
-                    text_y = 1.1 * np.sin(angle)
+                    # Tekst jeszcze dalej
+                    text_x = 1.4 * np.cos(angle)
+                    text_y = 1.4 * np.sin(angle)
                     
                     rot = np.degrees(angle)
                     if 90 < rot < 270:
@@ -1274,52 +1276,55 @@ with tab4:
                     else:
                         ha = 'left'
 
-                    # Napis imienia (biały)
+                    # MNIEJSZA CZCIONKA NAZWISK (fontsize=8)
                     if guest_name:
-                        ax.text(text_x, text_y, guest_name, ha=ha, va='center', rotation=rot, fontsize=9, color=text_color, fontweight='bold')
+                        ax.text(text_x, text_y, guest_name, ha=ha, va='center', rotation=rot, fontsize=8, color=text_color, fontweight='bold')
                     else:
-                        # Numer miejsca na krześle (biały, bo na zielonym tle)
-                        ax.text(x, y, str(i+1), ha='center', va='center', fontsize=7, color='white')
+                        ax.text(x, y, str(i+1), ha='center', va='center', fontsize=8, color='white')
 
-                ax.set_xlim(-1.5, 1.5)
-                ax.set_ylim(-1.5, 1.5)
+                # Większy zakres osi
+                ax.set_xlim(-2, 2)
+                ax.set_ylim(-2, 2)
 
             elif ksztalt_stolu == "Prostokątny":
-                # Rysujemy stół (prostokąt)
-                rect = plt.Rectangle((-0.5, -1), 1, 2, color=table_color, ec=edge_color, lw=2)
+                # WIĘKSZY STÓŁ PROSTOKĄTNY (1.5x3)
+                rect = plt.Rectangle((-0.75, -1.5), 1.5, 3, color=table_color, ec=edge_color, lw=2)
                 ax.add_artist(rect)
-                # Nazwa stołu (obrócona)
-                ax.text(0, 0, wybrany_stol_id, ha='center', va='center', rotation=90, fontsize=12, fontweight='bold', color=edge_color)
+                # Nazwa stołu na biało
+                ax.text(0, 0, wybrany_stol_id, ha='center', va='center', rotation=90, fontsize=12, fontweight='bold', color='white')
 
                 side_count = (max_miejsc + 1) // 2
                 
                 for i in range(max_miejsc):
                     guest_name = nowa_lista_gosci[i]
                     
+                    # KRZESŁA BARDZIEJ ODSUNIĘTE (x=-1.3 i 1.3)
                     if i < side_count:
-                        x = -0.85
-                        y = np.linspace(-0.8, 0.8, side_count)[i]
+                        x = -1.3
+                        # Rozłożenie wzdłuż dłuższego stołu
+                        y = np.linspace(-1.2, 1.2, side_count)[i]
                         ha = 'right'
                     else:
-                        x = 0.85
-                        y = np.linspace(-0.8, 0.8, max_miejsc - side_count)[i - side_count]
+                        x = 1.3
+                        y = np.linspace(-1.2, 1.2, max_miejsc - side_count)[i - side_count]
                         ha = 'left'
 
-                    # Krzesło
-                    seat = plt.Circle((x if x>0 else x+0.1, y), 0.1, color=seat_color, alpha=1.0)
-                    if i < side_count: seat.center = (-0.6, y)
-                    else: seat.center = (0.6, y)
+                    # Większe krzesło i poprawiona pozycja kropki
+                    seat = plt.Circle((x if x>0 else x, y), 0.15, color=seat_color, alpha=1.0)
+                    if i < side_count: seat.center = (-1.15, y)
+                    else: seat.center = (1.15, y)
                     ax.add_artist(seat)
 
+                    # MNIEJSZA CZCIONKA NAZWISK (fontsize=8)
                     if guest_name:
-                        ax.text(x, y, guest_name, ha=ha, va='center', fontsize=9, color=text_color, fontweight='bold')
+                        ax.text(x, y, guest_name, ha=ha, va='center', fontsize=8, color=text_color, fontweight='bold')
                     else:
-                        # Numer miejsca na krześle
                         seat_x, seat_y = seat.center
-                        ax.text(seat_x, seat_y, str(i+1), ha='center', va='center', fontsize=7, color='white')
+                        ax.text(seat_x, seat_y, str(i+1), ha='center', va='center', fontsize=8, color='white')
 
-                ax.set_xlim(-1.5, 1.5)
-                ax.set_ylim(-1.5, 1.5)
+                # Większy zakres osi
+                ax.set_xlim(-2.5, 2.5)
+                ax.set_ylim(-2.5, 2.5)
 
             st.pyplot(fig, use_container_width=True)
             
