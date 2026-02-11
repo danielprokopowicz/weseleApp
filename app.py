@@ -32,7 +32,7 @@ def local_css():
         h1 {
             color: #8B4513; /* Brązowy, pasuje do stołów */
             text-align: center;
-            font-weight: 500;
+            font-weight: 1000;
         }
         h2 {
             color: #1B4D3E; /* Butelkowa zieleń */
