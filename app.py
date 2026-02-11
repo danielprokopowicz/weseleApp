@@ -545,22 +545,11 @@ with tab2:
     elif s == "✅ Opłacone": df_disp = df_disp.sort_values("Czy_Oplacone", ascending=False)
 
     edited_org = st.data_editor(
-        df_disp,
-        num_rows="dynamic",
-        use_container_width=True,
-        hide_index=True,
-        key="ed_org",
+        df_disp, num_rows="dynamic", use_container_width=True, hide_index=True, key="ed_org",
         column_config={
-            "Kategoria": st.column_config.SelectboxColumn("Kategoria", options=wszystkie_kategorie, required=True, width="medium"),
+            "Kategoria": st.column_config.SelectboxColumn("Kategoria", options=all_cats, required=True),
             "Rola": st.column_config.TextColumn("Rola", required=True),
-            "Informacje": st.column_config.TextColumn("Kontakt / Info", width="medium"),
-            # ZMIANA: Pasek postępu wizualizujący koszt (max np. 10000 zł)
-            "Koszt": st.column_config.ProgressColumn(
-                "Koszt (Całość)", 
-                format="%d zł", 
-                min_value=0, 
-                max_value=150000, 
-            ),
+            "Koszt": st.column_config.ProgressColumn("Koszt", format="%d zł", min_value=0, max_value=150000),
             "Czy_Oplacone": st.column_config.CheckboxColumn("✅ Opłacone?"),
             "Zaliczka": st.column_config.NumberColumn("Zaliczka", format="%d zł"),
             "Czy_Zaliczka_Oplacona": st.column_config.CheckboxColumn("✅ Zaliczka?")
