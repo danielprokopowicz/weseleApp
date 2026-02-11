@@ -60,6 +60,13 @@ def local_css():
             background-color: ##787a79 !important;
             color: white !important;
         }
+
+        input[type=checkbox]:checked {
+            accent-color: #4CAF50 !important;
+        }
+        .stCheckbox > label > div[role="checkbox"][aria-checked="true"] {
+            background-color: #4CAF50 !important;
+        }
     </style>
     """, unsafe_allow_html=True)
 
@@ -504,22 +511,30 @@ with tab2:
             st.session_state["org_k_inp"] = ""
         else: st.warning("Wpisz Rolę i Kategorię")
 
+    # --- NOWY UKŁAD FORMULARZA ---
     with st.expander("➕ Dodaj koszt", expanded=False):
-        c1, c2 = st.columns(2)
-        with c1: 
+        # 1. Kategoria i Nowa Nazwa
+        c_select, c_input = st.columns(2)
+        with c_select:
             sel = st.selectbox("Kategoria", select_opts, key="org_k_sel")
-        with c2:
+        with c_input:
             if sel == "➕ Stwórz nową...": st.text_input("Nowa nazwa:", key="org_k_inp")
         
-        st.text_input("Rola", key="org_rola")
+        # 2. Rola
+        st.text_input("Rola", key="org_rola", placeholder="np. DJ, Florystka")
+        
+        # 3. Finanse OBOK SIEBIE (Koszt i Zaliczka)
         c1, c2 = st.columns(2)
         with c1:
-            st.number_input("Koszt", step=100.0, key="org_koszt")
-            st.checkbox("Opłacone całe?", key="org_op")
+            st.number_input("Koszt Całkowity (zł)", step=100.0, key="org_koszt")
+            st.checkbox("Całość opłacona?", key="org_op")
         with c2:
-            st.text_input("Info", key="org_info")
-            st.number_input("Zaliczka", step=100.0, key="org_zal")
+            st.number_input("Zaliczka (zł)", step=100.0, key="org_zal")
             st.checkbox("Zaliczka opłacona?", key="org_z_op")
+            
+        # 4. Info NA DOLE (Szerokie)
+        st.text_input("Informacje dodatkowe", key="org_info", placeholder="Kontakt, termin płatności...")
+        
         st.button("Dodaj", on_click=dodaj_usluge, key="btn_org")
 
     st.write("---")
@@ -529,6 +544,7 @@ with tab2:
     df_disp = df_obsluga.copy()
     if fil: df_disp = df_disp[df_disp["Kategoria"].isin(fil)]
 
+    # Konwersja typów
     df_disp["Koszt"] = pd.to_numeric(df_disp["Koszt"], errors='coerce').fillna(0.0)
     df_disp["Zaliczka"] = pd.to_numeric(df_disp["Zaliczka"], errors='coerce').fillna(0.0)
     def fix_bool(x): return str(x).lower().strip() in ["tak", "true", "1", "yes"]
@@ -544,12 +560,24 @@ with tab2:
     elif s == "❌ Nieopłacone": df_disp = df_disp.sort_values("Czy_Oplacone", ascending=True)
     elif s == "✅ Opłacone": df_disp = df_disp.sort_values("Czy_Oplacone", ascending=False)
 
+    # --- NOWOŚĆ: DYNAMICZNY MAX DLA PASKA POSTĘPU ---
+    # Obliczamy sumę wszystkich kosztów w tabeli i ustawiamy ją jako 100% paska
+    max_budget_value = int(df_disp["Koszt"].sum())
+    if max_budget_value == 0: max_budget_value = 100 # Zabezpieczenie przed 0
+
     edited_org = st.data_editor(
         df_disp, num_rows="dynamic", use_container_width=True, hide_index=True, key="ed_org",
         column_config={
             "Kategoria": st.column_config.SelectboxColumn("Kategoria", options=all_cats, required=True),
             "Rola": st.column_config.TextColumn("Rola", required=True),
-            "Koszt": st.column_config.ProgressColumn("Koszt", format="%d zł", min_value=0, max_value=150000),
+            "Informacje": st.column_config.TextColumn("Info", width="large"),
+            # Pasek postępu z dynamicznym max_value
+            "Koszt": st.column_config.ProgressColumn(
+                "Koszt", 
+                format="%d zł", 
+                min_value=0, 
+                max_value=max_budget_value 
+            ),
             "Czy_Oplacone": st.column_config.CheckboxColumn("✅ Opłacone?"),
             "Zaliczka": st.column_config.NumberColumn("Zaliczka", format="%d zł"),
             "Czy_Zaliczka_Oplacona": st.column_config.CheckboxColumn("✅ Zaliczka?")
