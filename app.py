@@ -31,7 +31,7 @@ def local_css():
 
         /* 3. TŁO DLA TABEL (Ciemnoszare, żeby odróżniały się od tła) */
         [data-testid="stDataEditor"], [data-testid="stDataFrame"] {
-            background-color: #1a1a1a !important; /* Tło pod tabelą */
+            background-color: #010205 !important; /* Tło pod tabelą */
             border: 1px solid #333;
             border-radius: 10px;
             padding: 10px;
@@ -67,7 +67,7 @@ def local_css():
             border: 1px solid #333; /* Ciemnoszara ramka */
             padding: 15px;
             border-radius: 10px;
-            box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.7);
         }
         [data-testid="stMetricLabel"] {
             color: #F5F5DC !important; /* Beżowy napis */
@@ -80,11 +80,15 @@ def local_css():
         button[data-baseweb="tab"] {
             font-size: 18px !important;
             font-weight: 600 !important;
+            background-color: #000000 !important; /* Tło nieaktywnej zakładki */
+            color: #AAAAAA !important; /* Tekst nieaktywnej zakładki */
+            border-radius: 5px 5px 0 0;
+            margin-right: 2px;
         }
         
         /* Kolor aktywnej zakładki */
         button[data-baseweb="tab"][aria-selected="true"] {
-            background-color: #787a79 !important;
+            background-color: #010205 !important; /* Butelkowa zieleń */
             color: white !important;
         }
     </style>
