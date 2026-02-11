@@ -467,7 +467,7 @@ with tab1:
 
         # Styl kafelka (taki sam jak w Organizacji)
         card_style = """
-            background-color: #222222; 
+            background-color: #262730; 
             border: 1px solid #444; 
             padding: 15px; 
             border-radius: 10px; 
