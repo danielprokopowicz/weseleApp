@@ -68,7 +68,7 @@ def local_css():
 
         /* Kolory tekstów w kafelkach */
         [data-testid="stMetricLabel"] {
-            color: #F5F5DC !important; /* Beżowy */
+            color: white !important; /* Beżowy */
         }
         [data-testid="stMetricValue"] {
             color: #4CAF50 !important; /* Zielony */
