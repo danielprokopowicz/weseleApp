@@ -51,7 +51,7 @@ def local_css():
         
         /* 1. Kafelki (Metryki) - Tło ciemnoszare (zamiast czarnego) */
         [data-testid="stMetric"] {
-            background-color: #262730 !important; /* Standardowy ciemny kolor kart Streamlit */
+            background-color: #222222 !important; /* Standardowy ciemny kolor kart Streamlit */
             border: 1px solid #444; /* Delikatna ramka */
             padding: 15px;
             border-radius: 10px;
@@ -67,7 +67,7 @@ def local_css():
         
         /* Kolory tekstów w kafelkach */
         [data-testid="stMetricLabel"] {
-            color: white !important; /* Beżowy */
+            color: white !important; 
         }
         [data-testid="stMetricValue"] {
             color: #4CAF50 !important; /* Zielony */
