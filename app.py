@@ -23,16 +23,23 @@ def local_css():
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
         }
         
-        /* Ukrycie menu hamburgera i stopki "Made with Streamlit" */
+        /* PRZESUNIĘCIE TYTUŁU WYŻEJ */
+        .block-container {
+            padding-top: 2rem !important; /* Zmniejszony margines górny */
+            padding-bottom: 2rem !important;
+        }
+        
+        /* Ukrycie menu hamburgera i stopki */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
         
         /* Stylizacja nagłówków */
         h1 {
-            color: #8B4513; /* Brązowy, pasuje do stołów */
+            color: #8B4513; /* Brązowy */
             text-align: center;
             font-weight: 1000;
+            margin-bottom: 0px; /* Mniejszy odstęp pod tytułem */
         }
         h2 {
             color: #1B4D3E; /* Butelkowa zieleń */
@@ -40,13 +47,19 @@ def local_css():
             padding-bottom: 10px;
         }
         
-        /* Stylizacja metryk (karty z budżetem) */
+        /* --- STYLIZACJA KAFELKÓW (METRYK) NA CZARNO --- */
         [data-testid="stMetric"] {
-            background-color: #1e1e1e; /* Ciemne tło karty */
-            border: 1px solid #333;
+            background-color: #000000 !important; /* Czarne tło */
+            border: 1px solid #333; /* Ciemnoszara ramka */
             padding: 15px;
             border-radius: 10px;
             box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+        }
+        [data-testid="stMetricLabel"] {
+            color: #F5F5DC !important; /* Beżowy napis nagłówka kafelka */
+        }
+        [data-testid="stMetricValue"] {
+            color: #4CAF50 !important; /* Zielona wartość liczbowa */
         }
         
         /* Powiększenie zakładek (Tabs) */
@@ -57,39 +70,32 @@ def local_css():
         
         /* Kolor aktywnej zakładki */
         button[data-baseweb="tab"][aria-selected="true"] {
-            background-color: ##787a79 !important;
+            background-color: #787a79 !important;
             color: white !important;
         }
 
+        /* Styl checkboxów na zielono */
         input[type=checkbox]:checked {
             accent-color: #4CAF50 !important;
-            background-color: #4CAF50 !important;
-            border-color: #4CAF50 !important;
         }
-        
-        .stCheckbox input:checked {
-            accent-color: #4CAF50 !important;
+        .stCheckbox > label > div[role="checkbox"][aria-checked="true"] {
+            background-color: #4CAF50 !important;
         }
     </style>
     """, unsafe_allow_html=True)
 
-# --- WYWOŁANIE FUNKCJI ---
-local_css()
-# --- STAŁE ---
+# --- KONFIGURACJA STRONY ---
+st.set_page_config(page_title="Menadżer Ślubny", page_icon="💍", layout="wide")
 
+# --- WYWOŁANIE STYLI ---
+local_css()
+
+# --- STAŁE ---
 LISTA_KATEGORII_BAZA = [
 
     "Inne"
 
 ]
-
-
-
-# --- KONFIGURACJA STRONY ---
-
-st.set_page_config(page_title="Menadżer Ślubny", page_icon="💍", layout="wide")
-
-
 
 # --- POŁĄCZENIE Z GOOGLE SHEETS ---
 
