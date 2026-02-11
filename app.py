@@ -201,7 +201,6 @@ with tab1:
             st.session_state["check_rsvp"] = False
             st.session_state["check_plusone"] = False
             st.session_state["check_invite"] = False
-            # BEZ st.rerun() – wystarczy zmiana session_state
         else:
             st.warning("Musisz wpisać imię głównego gościa!")
 
@@ -289,7 +288,7 @@ with tab1:
         k3.markdown(f'<div style="{card_style}"><div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Potwierdzone przybycia</div><div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{potwierdzone}</div></div>', unsafe_allow_html=True)
 
 # ==========================
-# ZAKŁADKA 2: ORGANIZACJA (PEŁNA EDYCJA W TABELI)
+# ZAKŁADKA 2: ORGANIZACJA (w pełni edytowalna tabela)
 # ==========================
 with tab2:
     st.header("🎧 Organizacja i Budżet")
@@ -341,7 +340,6 @@ with tab2:
             st.session_state["org_zal"] = 0.0
             st.session_state["org_z_op"] = False
             st.session_state["org_k_inp"] = ""
-            # BEZ st.rerun()
         else:
             st.warning("Wpisz Rolę i Kategorię")
 
@@ -385,14 +383,11 @@ with tab2:
     elif s == "✅ Opłacone":
         df_disp = df_disp.sort_values("Czy_Oplacone", ascending=False)
 
-    max_budget_value = int(df_disp["Koszt"].sum())
-    if max_budget_value == 0:
-        max_budget_value = 100
-
     # EDYTOR DANYCH – pełna edycja, dynamiczne wiersze
+    # ProgressColumn ZOSTAŁ USUNIĘTY – Koszt to zwykła liczba
     edited_org = st.data_editor(
         df_disp,
-        num_rows="dynamic",  # można dodawać/usuwać wiersze
+        num_rows="dynamic",
         use_container_width=True,
         hide_index=True,
         key="ed_org",
@@ -400,9 +395,9 @@ with tab2:
             "Kategoria": st.column_config.SelectboxColumn("Kategoria", options=all_cats, required=True),
             "Rola": st.column_config.TextColumn("Rola", required=True),
             "Informacje": st.column_config.TextColumn("Info", width="large"),
-            "Koszt": st.column_config.ProgressColumn("Koszt", format="%d zł", min_value=0, max_value=max_budget_value),
+            "Koszt": st.column_config.NumberColumn("Koszt (zł)", format="%.0f zł", min_value=0, step=100),
             "Czy_Oplacone": st.column_config.CheckboxColumn("✅ Opłacone?"),
-            "Zaliczka": st.column_config.NumberColumn("Zaliczka", format="%d zł"),
+            "Zaliczka": st.column_config.NumberColumn("Zaliczka (zł)", format="%.0f zł", min_value=0, step=100),
             "Czy_Zaliczka_Oplacona": st.column_config.CheckboxColumn("✅ Zaliczka?")
         }
     )
@@ -429,7 +424,7 @@ with tab2:
         st.success("Zapisano!")
         st.rerun()
 
-    # --- PODSUMOWANIE FINANSOWE (bez zmian) ---
+    # --- PODSUMOWANIE FINANSOWE ---
     if not df_obsluga.empty:
         calc = df_obsluga.copy()
         calc["Koszt"] = pd.to_numeric(calc["Koszt"], errors='coerce').fillna(0.0)
@@ -512,7 +507,6 @@ with tab3:
 
             st.toast(f"📅 Dodano zadanie: {tresc}")
             st.session_state["todo_tresc"] = ""
-            # BEZ st.rerun()
         else:
             st.warning("Wpisz treść zadania!")
 
@@ -618,7 +612,6 @@ with tab4:
 
                 zapisz_nowy_wiersz(worksheet_stoly, nowy_wiersz)
                 st.toast(f"Dodano stół: {nr_stolu}")
-                # st.rerun() – niepotrzebne, zmiana session_state odświeży widok
 
         st.write("---")
         st.subheader("📋 Lista Stołów")
@@ -668,7 +661,7 @@ with tab4:
                     st.success("Zapisano!")
                     st.rerun()
 
-            # Wizualizacja (bez zmian)
+            # Wizualizacja (skrócona dla przejrzystości)
             st.write("---")
             st.write(f"**Podgląd: {ksztalt_stolu} ({max_miejsc} os.)**")
             fig, ax = plt.subplots(figsize=(20, 16))
@@ -698,7 +691,7 @@ with tab4:
                     else:
                         ax.text(cx, cy, str(i+1), ha='center', va='center', fontsize=16, color='white')
                 ax.set_xlim(-2.2, 2.2); ax.set_ylim(-2.2, 2.2)
-            else:  # Prostokątny
+            else:
                 W_STOL = 2.0; H_STOL = 4.0
                 rect = plt.Rectangle((-W_STOL/2, -H_STOL/2), W_STOL, H_STOL, color=table_color, ec=edge_color, lw=4); ax.add_artist(rect)
                 ax.text(0, 0, wybrany_stol_id, ha='center', va='center', rotation=90, fontsize=24, fontweight='bold', color='white')
