@@ -479,6 +479,31 @@ with tab2:
             c_center = st.columns([1,2,1])
             with c_center[1]:
                 st.pyplot(fig, use_container_width=True)
+                    # --- WYKRES KOŁOWY DLA RÓL (z tooltipami) ---
+        st.write("---")
+        st.write("**Wydatki według roli**")
+        
+        # Grupowanie po rolach
+        grp_role = calc.groupby("Rola")["Koszt"].sum().reset_index().sort_values("Koszt", ascending=False)
+        grp_role = grp_role[grp_role["Koszt"] > 0]
+        
+        if not grp_role.empty:
+            # Interaktywny wykres kołowy Altair
+            chart_pie_role = alt.Chart(grp_role).mark_arc(innerRadius=50).encode(
+                theta=alt.Theta(field="Koszt", type="quantitative"),
+                color=alt.Color(field="Rola", type="nominal", legend=alt.Legend(title="Rola")),
+                tooltip=[
+                    alt.Tooltip("Rola:N", title="Rola"),
+                    alt.Tooltip("Koszt:Q", title="Koszt", format=",.0f")
+                ]
+            ).properties(
+                width=400,
+                height=400
+            ).interactive()
+            
+            st.altair_chart(chart_pie_role, use_container_width=True)
+        else:
+            st.info("Brak danych do wyświetlenia wykresu dla ról.")
         else:
             st.info("Dodaj koszty, aby zobaczyć wykresy.")
 
