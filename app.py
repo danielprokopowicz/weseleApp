@@ -51,7 +51,7 @@ def local_css():
         
         /* 1. Kafelki (Metryki) - Tło ciemnoszare (zamiast czarnego) */
         [data-testid="stMetric"] {
-            background-color: #222222 !important; /* Standardowy ciemny kolor kart Streamlit */
+            background-color: #262730 !important; /* Standardowy ciemny kolor kart Streamlit */
             border: 1px solid #444; /* Delikatna ramka */
             padding: 15px;
             border-radius: 10px;
@@ -625,7 +625,7 @@ with tab2:
         # --- NOWE KAFELKI (HTML) - GWARANCJA KOLORÓW ---
         # Definiujemy styl dla kafelka, żeby nie powtarzać kodu
         card_style = """
-            background-color: #222222; 
+            background-color: #262730; 
             border: 1px solid #444; 
             padding: 15px; 
             border-radius: 10px; 
