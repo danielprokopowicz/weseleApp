@@ -18,28 +18,14 @@ import numpy as np
 def local_css():
     st.markdown("""
     <style>
-        /* 1. GŁÓWNE TŁO APLIKACJI (Czarne/Ciemne) */
-        .stApp {
-            background-color: #121212 !important;
-        }
-
-        /* 2. TEKST I CZCIONKA (Kolor biały jest konieczny na ciemnym tle) */
+        /* Zmiana fontu dla całej strony */
         html, body, [class*="css"] {
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            color: #FAFAFA !important;
         }
-
-        /* 3. TŁO DLA TABEL (Ciemnoszare, żeby odróżniały się od tła) */
-        [data-testid="stDataEditor"], [data-testid="stDataFrame"] {
-            background-color: #121212 !important; /* Tło pod tabelą */
-            border: 1px solid #333;
-            border-radius: 10px;
-            padding: 10px;
-        }
-
+        
         /* PRZESUNIĘCIE TYTUŁU WYŻEJ */
         .block-container {
-            padding-top: 2rem !important;
+            padding-top: 2rem !important; /* Zmniejszony margines górny */
             padding-bottom: 2rem !important;
         }
         
@@ -50,13 +36,13 @@ def local_css():
         
         /* Stylizacja nagłówków */
         h1 {
-            color: #FAFAFA !important; /* Brązowy */
+            color: #8B4513; /* Brązowy */
             text-align: center;
             font-weight: 1000;
-            margin-bottom: 0px;
+            margin-bottom: 0px; /* Mniejszy odstęp pod tytułem */
         }
         h2 {
-            color: #FAFAFA !important; /* Butelkowa zieleń */
+            color: #1B4D3E; /* Butelkowa zieleń */
             border-bottom: 2px solid #FFFFFF;
             padding-bottom: 10px;
         }
@@ -67,20 +53,20 @@ def local_css():
             border: 1px solid #333; /* Ciemnoszara ramka */
             padding: 15px;
             border-radius: 10px;
-            box-shadow: 2px 2px 10px rgba(0,0,0,0.7);
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
         }
         [data-testid="stMetricLabel"] {
-            color: #F5F5DC !important; /* Beżowy napis */
+            color: #F5F5DC !important; /* Beżowy napis nagłówka kafelka */
         }
         [data-testid="stMetricValue"] {
-            color: #4CAF50 !important; /* Zielona wartość */
+            color: #4CAF50 !important; /* Zielona wartość liczbowa */
         }
         
         /* Powiększenie zakładek (Tabs) */
         button[data-baseweb="tab"] {
             font-size: 18px !important;
             font-weight: 600 !important;
-            background-color: #000000 !important; /* Tło nieaktywnej zakładki */
+            background-color: #1E1E1E !important; /* Tło nieaktywnej zakładki */
             color: #AAAAAA !important; /* Tekst nieaktywnej zakładki */
             border-radius: 5px 5px 0 0;
             margin-right: 2px;
@@ -88,8 +74,16 @@ def local_css():
         
         /* Kolor aktywnej zakładki */
         button[data-baseweb="tab"][aria-selected="true"] {
-            background-color: #010205 !important; /* Butelkowa zieleń */
+            background-color: #787a79 !important;
             color: white !important;
+        }
+
+        /* Styl checkboxów na zielono */
+        input[type=checkbox]:checked {
+            accent-color: #4CAF50 !important;
+        }
+        .stCheckbox > label > div[role="checkbox"][aria-checked="true"] {
+            background-color: #4CAF50 !important;
         }
     </style>
     """, unsafe_allow_html=True)
