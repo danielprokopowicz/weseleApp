@@ -457,19 +457,50 @@ with tab1:
 
     # Statystyki
 
+    # Statystyki (ZMODYFIKOWANE - KAFELKI HTML)
     if not df_goscie.empty:
+        potwierdzone = len(df_goscie[df_goscie["RSVP"].astype(str) == "Tak"])
+        zaproszone = len(df_goscie[df_goscie["Zaproszenie_Wyslane"].astype(str) == "Tak"])       
+        total_goscie = len(df_goscie)
 
-        potwierdzone = df_goscie[df_goscie["RSVP"].astype(str) == "Tak"]
+        st.write("---")
 
-        zaproszone = df_goscie[df_goscie["Zaproszenie_Wyslane"].astype(str) == "Tak"]       
+        # Styl kafelka (taki sam jak w Organizacji)
+        card_style = """
+            background-color: #222222; 
+            border: 1px solid #444; 
+            padding: 15px; 
+            border-radius: 10px; 
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+            text-align: left;
+            margin-bottom: 10px;
+        """
 
         k1, k2, k3 = st.columns(3)
 
-        k1.metric("Liczba gości", f"{len(df_goscie)}")
+        # 1. Liczba Gości
+        k1.markdown(f"""
+            <div style="{card_style}">
+                <div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Liczba gości</div>
+                <div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{total_goscie}</div>
+            </div>
+        """, unsafe_allow_html=True)
 
-        k2.metric("Wysłane zaproszenia", f"{len(zaproszone)}")
+        # 2. Wysłane Zaproszenia
+        k2.markdown(f"""
+            <div style="{card_style}">
+                <div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Wysłane zaproszenia</div>
+                <div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{zaproszone}</div>
+            </div>
+        """, unsafe_allow_html=True)
 
-        k3.metric("Potwierdzone Przybycia", f"{len(potwierdzone)}")
+        # 3. Potwierdzone Przybycia
+        k3.markdown(f"""
+            <div style="{card_style}">
+                <div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Potwierdzone przybycia</div>
+                <div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{potwierdzone}</div>
+            </div>
+        """, unsafe_allow_html=True)
 
 
 
