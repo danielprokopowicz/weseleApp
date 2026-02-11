@@ -32,11 +32,11 @@ def local_css():
         h1 {
             color: #8B4513; /* Brązowy, pasuje do stołów */
             text-align: center;
-            font-weight: 700;
+            font-weight: 500;
         }
         h2 {
             color: #1B4D3E; /* Butelkowa zieleń */
-            border-bottom: 2px solid #F5F5DC;
+            border-bottom: 2px solid #FFFFFF;
             padding-bottom: 10px;
         }
         
@@ -57,7 +57,7 @@ def local_css():
         
         /* Kolor aktywnej zakładki */
         button[data-baseweb="tab"][aria-selected="true"] {
-            background-color: #1B4D3E !important;
+            background-color: ##787a79 !important;
             color: white !important;
         }
     </style>
