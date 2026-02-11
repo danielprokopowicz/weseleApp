@@ -15,13 +15,12 @@ import altair as alt
 import numpy as np
 
 # --- STYLIZACJA CSS (UI) ---
-# --- STYLIZACJA CSS (UI) ---
 def local_css():
     st.markdown("""
     <style>
         /* 1. GŁÓWNE TŁO APLIKACJI (Czarne/Ciemne) */
         .stApp {
-            background-color: #0E1117 !important;
+            background-color: #000000 !important;
         }
 
         /* 2. TEKST I CZCIONKA (Kolor biały jest konieczny na ciemnym tle) */
