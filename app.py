@@ -462,7 +462,7 @@ with tab2:
             ).properties(height=300).interactive()
             st.altair_chart(chart_bar, use_container_width=True)
 
-        # --- NOWY WYKRES KOŁOWY: Role (z tooltipami) ---
+        # --- WYKRES KOŁOWY: Role (z tooltipami) ---
         st.write("---")
         st.write("**Wydatki według roli**")
         
@@ -470,7 +470,6 @@ with tab2:
         grp_role = grp_role[grp_role["Koszt"] > 0]
         
         if not grp_role.empty:
-            # Interaktywny wykres kołowy Altair (donut)
             chart_pie_role = alt.Chart(grp_role).mark_arc(innerRadius=50).encode(
                 theta=alt.Theta(field="Koszt", type="quantitative"),
                 color=alt.Color(field="Rola", type="nominal", legend=alt.Legend(title="Rola")),
@@ -482,31 +481,29 @@ with tab2:
                 width=400,
                 height=400
             ).interactive()
-            
             st.altair_chart(chart_pie_role, use_container_width=True)
         else:
             st.info("Brak danych do wyświetlenia wykresu dla ról.")
 
-        # --- WYKRES KOŁOWY: Udział procentowy kategorii (istniejący, z matplotlib) ---
+        # --- WYKRES KOŁOWY: Kategorie (z tooltipami) ---
         if not grp_cat.empty:
             st.write("---")
             st.write("**Udział procentowy kategorii**")
-            fig, ax = plt.subplots(figsize=(6, 6))
-            fig.patch.set_alpha(0)
-            ax.patch.set_alpha(0)
-            wedges, texts, autotexts = ax.pie(
-                grp_cat["Koszt"],
-                labels=grp_cat["Kategoria"],
-                autopct='%1.1f%%',
-                startangle=90,
-                textprops={'color': "white", 'fontsize': 10}
-            )
-            plt.setp(autotexts, size=10, weight="bold", color="white")
-            plt.setp(texts, size=10, color="white")
-            ax.axis('equal')
-            c_center = st.columns([1,2,1])
-            with c_center[1]:
-                st.pyplot(fig, use_container_width=True)
+            
+            # Altair pie chart z tooltipami
+            chart_pie_cat = alt.Chart(grp_cat).mark_arc(innerRadius=50).encode(
+                theta=alt.Theta(field="Koszt", type="quantitative"),
+                color=alt.Color(field="Kategoria", type="nominal", legend=alt.Legend(title="Kategoria")),
+                tooltip=[
+                    alt.Tooltip("Kategoria:N", title="Kategoria"),
+                    alt.Tooltip("Koszt:Q", title="Koszt", format=",.0f")
+                ]
+            ).properties(
+                width=400,
+                height=400
+            ).interactive()
+            
+            st.altair_chart(chart_pie_cat, use_container_width=True)
     else:
         st.info("Dodaj koszty, aby zobaczyć podsumowanie i wykresy.")
 
