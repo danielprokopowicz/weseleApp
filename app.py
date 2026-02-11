@@ -66,7 +66,6 @@ def local_css():
         button[data-baseweb="tab"] {
             font-size: 18px !important;
             font-weight: 600 !important;
-            background-color: #1E1E1E !important; /* Tło nieaktywnej zakładki */
             color: #AAAAAA !important; /* Tekst nieaktywnej zakładki */
             border-radius: 5px 5px 0 0;
             margin-right: 2px;
@@ -74,7 +73,6 @@ def local_css():
         
         /* Kolor aktywnej zakładki */
         button[data-baseweb="tab"][aria-selected="true"] {
-            background-color: #787a79 !important;
             color: white !important;
         }
 
