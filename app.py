@@ -386,7 +386,6 @@ with tab2:
         df_disp = df_disp.sort_values("Czy_Oplacone", ascending=False)
 
     # EDYTOR DANYCH – pełna edycja, dynamiczne wiersze
-    # ProgressColumn ZOSTAŁ USUNIĘTY – Koszt to zwykła liczba
     edited_org = st.data_editor(
         df_disp,
         num_rows="dynamic",
@@ -449,46 +448,29 @@ with tab2:
 
         st.write("---")
         st.subheader("📊 Struktura Wydatków")
-        grp = calc.groupby("Kategoria")["Koszt"].sum().reset_index().sort_values("Koszt", ascending=False)
-        grp = grp[grp["Koszt"] > 0]
-        if not grp.empty:
-            st.write("**Ile wydajemy na co? (w zł)**")
-            chart = alt.Chart(grp).mark_bar().encode(
+        
+        # --- WYKRES SŁUPKOWY: Kategorie ---
+        grp_cat = calc.groupby("Kategoria")["Koszt"].sum().reset_index().sort_values("Koszt", ascending=False)
+        grp_cat = grp_cat[grp_cat["Koszt"] > 0]
+        if not grp_cat.empty:
+            st.write("**Ile wydajemy na poszczególne kategorie?**")
+            chart_bar = alt.Chart(grp_cat).mark_bar().encode(
                 x=alt.X('Koszt', title='Kwota (zł)'),
                 y=alt.Y('Kategoria', sort='-x', title='Kategoria'),
                 color=alt.Color('Kategoria', legend=None),
                 tooltip=['Kategoria', alt.Tooltip('Koszt', format=',.0f')]
             ).properties(height=300).interactive()
-            st.altair_chart(chart, use_container_width=True)
+            st.altair_chart(chart_bar, use_container_width=True)
 
-            st.write("---")
-            st.write("**Udział procentowy**")
-            fig, ax = plt.subplots(figsize=(6, 6))
-            fig.patch.set_alpha(0)
-            ax.patch.set_alpha(0)
-            wedges, texts, autotexts = ax.pie(
-                grp["Koszt"],
-                labels=grp["Kategoria"],
-                autopct='%1.1f%%',
-                startangle=90,
-                textprops={'color': "white", 'fontsize': 10}
-            )
-            plt.setp(autotexts, size=10, weight="bold", color="white")
-            plt.setp(texts, size=10, color="white")
-            ax.axis('equal')
-            c_center = st.columns([1,2,1])
-            with c_center[1]:
-                st.pyplot(fig, use_container_width=True)
-                    # --- WYKRES KOŁOWY DLA RÓL (z tooltipami) ---
+        # --- NOWY WYKRES KOŁOWY: Role (z tooltipami) ---
         st.write("---")
         st.write("**Wydatki według roli**")
         
-        # Grupowanie po rolach
         grp_role = calc.groupby("Rola")["Koszt"].sum().reset_index().sort_values("Koszt", ascending=False)
         grp_role = grp_role[grp_role["Koszt"] > 0]
         
         if not grp_role.empty:
-            # Interaktywny wykres kołowy Altair
+            # Interaktywny wykres kołowy Altair (donut)
             chart_pie_role = alt.Chart(grp_role).mark_arc(innerRadius=50).encode(
                 theta=alt.Theta(field="Koszt", type="quantitative"),
                 color=alt.Color(field="Rola", type="nominal", legend=alt.Legend(title="Rola")),
@@ -504,8 +486,29 @@ with tab2:
             st.altair_chart(chart_pie_role, use_container_width=True)
         else:
             st.info("Brak danych do wyświetlenia wykresu dla ról.")
-        else:
-            st.info("Dodaj koszty, aby zobaczyć wykresy.")
+
+        # --- WYKRES KOŁOWY: Udział procentowy kategorii (istniejący, z matplotlib) ---
+        if not grp_cat.empty:
+            st.write("---")
+            st.write("**Udział procentowy kategorii**")
+            fig, ax = plt.subplots(figsize=(6, 6))
+            fig.patch.set_alpha(0)
+            ax.patch.set_alpha(0)
+            wedges, texts, autotexts = ax.pie(
+                grp_cat["Koszt"],
+                labels=grp_cat["Kategoria"],
+                autopct='%1.1f%%',
+                startangle=90,
+                textprops={'color': "white", 'fontsize': 10}
+            )
+            plt.setp(autotexts, size=10, weight="bold", color="white")
+            plt.setp(texts, size=10, color="white")
+            ax.axis('equal')
+            c_center = st.columns([1,2,1])
+            with c_center[1]:
+                st.pyplot(fig, use_container_width=True)
+    else:
+        st.info("Dodaj koszty, aby zobaczyć podsumowanie i wykresy.")
 
 # ==========================
 # ZAKŁADKA 3: LISTA ZADAŃ
