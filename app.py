@@ -6,28 +6,22 @@ from datetime import date
 import matplotlib.pyplot as plt
 import altair as alt
 import numpy as np
+from gspread.exceptions import WorksheetNotFound  # <-- obsługa braku zakładek
 
-# --- STYLIZACJA CSS (bez zmian) ---
+# --- STYLIZACJA CSS ---
 def local_css():
     st.markdown("""
     <style>
-        /* Zmiana fontu dla całej strony */
         html, body, [class*="css"] {
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
         }
-        
-        /* PRZESUNIĘCIE TYTUŁU WYŻEJ */
         .block-container {
             padding-top: 1rem !important;
             padding-bottom: 2rem !important;
         }
-        
-        /* Ukrycie menu hamburgera i stopki */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
-        
-        /* Stylizacja nagłówków */
         h1 {
             color: #8B4513;
             text-align: center;
@@ -39,7 +33,6 @@ def local_css():
             border-bottom: 2px solid #FFFFFF;
             padding-bottom: 10px;
         }
-        
         [data-testid="stMetric"] {
             background-color: #262730 !important;
             border: 1px solid #444;
@@ -49,25 +42,21 @@ def local_css():
             text-align: left;
             margin-bottom: 10px;
         }
-        
         [data-testid="stDataEditor"] {
             border: 1px solid #444 !important;
             border-radius: 10px;
             background-color: #262730;
         }
-        
         [data-testid="stMetricLabel"] {
             color: white !important; 
         }
         [data-testid="stMetricValue"] {
             color: #4CAF50 !important;
         }
-        
         button[data-baseweb="tab"] {
             font-size: 18px !important;
             font-weight: 600 !important;
         }
-        
         button[data-baseweb="tab"][aria-selected="true"] {
             color: white !important;
         }
@@ -76,14 +65,10 @@ def local_css():
 
 # --- KONFIGURACJA STRONY ---
 st.set_page_config(page_title="Menadżer Ślubny", page_icon="💍", layout="wide")
-
-# --- WYWOŁANIE STYLI ---
 local_css()
 
 # --- STAŁE ---
 LISTA_KATEGORII_BAZA = ["Inne"]
-
-# --- NAZWY KOLUMN DLA KAŻDEGO ARKUSZA ---
 KOLUMNY_GOSCIE   = ["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP", "Zaproszenie_Wyslane"]
 KOLUMNY_OBSLUGA  = ["Kategoria", "Rola", "Informacje", "Koszt", "Czy_Oplacone", "Zaliczka", "Czy_Zaliczka_Oplacona"]
 KOLUMNY_ZADANIA  = ["Zadanie", "Termin", "Czy_Zrobione"]
@@ -105,32 +90,42 @@ def polacz_z_arkuszem():
         st.stop()
 
 sh = polacz_z_arkuszem()
-worksheet_goscie  = sh.worksheet("Goscie")
-worksheet_obsluga = sh.worksheet("Obsluga")
+
+# --- BEZPIECZNE POBIERANIE ZAKŁADEK Z OBSŁUGĄ BŁĘDÓW ---
+try:
+    worksheet_goscie = sh.worksheet("Goscie")
+except WorksheetNotFound:
+    st.error("⚠️ Brak zakładki 'Goscie' w arkuszu Google. Utwórz ją z nagłówkami: Imie_Nazwisko, Imie_Osoby_Tow, RSVP, Zaproszenie_Wyslane.")
+    st.stop()
+
+try:
+    worksheet_obsluga = sh.worksheet("Obsluga")
+except WorksheetNotFound:
+    st.error("⚠️ Brak zakładki 'Obsluga' w arkuszu Google. Utwórz ją z nagłówkami: Kategoria, Rola, Informacje, Koszt, Czy_Oplacone, Zaliczka, Czy_Zaliczka_Oplacona.")
+    st.stop()
+
 try:
     worksheet_zadania = sh.worksheet("Zadania")
-except:
+except WorksheetNotFound:
     worksheet_zadania = None
     st.warning("⚠️ Brakuje zakładki 'Zadania' w Arkuszu Google! Stwórz ją, aby lista zadań działała.")
+
 try:
     worksheet_stoly = sh.worksheet("Stoly")
-except:
+except WorksheetNotFound:
     worksheet_stoly = None
     st.warning("⚠️ Brakuje zakładki 'Stoly' w Arkuszu Google! Utwórz ją z nagłówkami: Numer, Ksztalt, Liczba_Miejsc, Goscie_Lista")
 
 # --- FUNKCJE POMOCNICZE (odczyt / zapis) ---
 def pobierz_dane(_worksheet):
-    """Zwraca DataFrame z arkusza (surowy odczyt)."""
     dane = _worksheet.get_all_records()
     return pd.DataFrame(dane)
 
 def zapisz_nowy_wiersz(worksheet, lista_wartosci):
-    """Dodaje wiersz do arkusza i czyści cache."""
     worksheet.append_row(lista_wartosci)
     st.cache_data.clear()
 
 def aktualizuj_caly_arkusz(worksheet, df):
-    """Zamienia cały arkusz na nowy DataFrame i czyści cache."""
     worksheet.clear()
     worksheet.update([df.columns.values.tolist()] + df.values.tolist())
     st.cache_data.clear()
@@ -142,7 +137,6 @@ def load_goscie():
     df = pobierz_dane(worksheet_goscie)
     if df.empty:
         df = pd.DataFrame(columns=KOLUMNY_GOSCIE)
-    # Konwersja kolumn logicznych na bool
     df["RSVP"] = df["RSVP"].apply(lambda x: str(x).lower() in ["tak", "true", "1", "yes"])
     df["Zaproszenie_Wyslane"] = df["Zaproszenie_Wyslane"].apply(lambda x: str(x).lower() in ["tak", "true", "1", "yes"])
     df = df.fillna("")
@@ -193,12 +187,10 @@ tab1, tab2, tab3, tab4 = st.tabs(["👥 Lista Gości", "🎧 Organizacja", "✅ 
 with tab1:
     st.header("👥 Zarządzanie Gośćmi")
     
-    # --- WCZYTANIE DANYCH DO SESSION STATE (TYLKO RAZ) ---
     if "df_goscie" not in st.session_state:
         st.session_state["df_goscie"] = load_goscie()
     df_goscie = st.session_state["df_goscie"]
 
-    # --- Funkcja obsługująca kliknięcie DODAJ ---
     def obsluga_dodawania():
         imie_glowne = st.session_state.get("input_imie", "")
         imie_partnera = st.session_state.get("input_partner", "")
@@ -207,20 +199,19 @@ with tab1:
         czy_zaproszenie = st.session_state.get("check_invite", False)
 
         if imie_glowne:
-            # 1. Przygotuj nowe wiersze
             nowe_wiersze = []
             nowe_wiersze.append([imie_glowne, "", czy_rsvp, czy_zaproszenie])
             if czy_z_osoba and imie_partnera:
                 nowe_wiersze.append([imie_partnera, f"(Osoba tow. dla: {imie_glowne})", czy_rsvp, czy_zaproszenie])
 
-            # 2. Aktualizacja SESSION STATE (natychmiast widoczne)
+            # Aktualizacja SESSION STATE
             df = st.session_state["df_goscie"].copy()
             for w in nowe_wiersze:
                 nowy = dict(zip(KOLUMNY_GOSCIE, w))
                 df = pd.concat([df, pd.DataFrame([nowy])], ignore_index=True)
             st.session_state["df_goscie"] = df
 
-            # 3. Zapis do ARKUSZA (konwersja bool -> "Tak"/"Nie")
+            # Zapis do ARKUSZA
             for w in nowe_wiersze:
                 w_arkusz = w.copy()
                 w_arkusz[2] = "Tak" if w_arkusz[2] else "Nie"
@@ -228,7 +219,6 @@ with tab1:
                 zapisz_nowy_wiersz(worksheet_goscie, w_arkusz)
 
             st.toast(f"✅ Dodano: {imie_glowne}")
-            # 4. Wyczyść pola formularza
             st.session_state["input_imie"] = ""
             st.session_state["input_partner"] = ""
             st.session_state["check_rsvp"] = False
@@ -238,7 +228,6 @@ with tab1:
         else:
             st.warning("Musisz wpisać imię głównego gościa!")
 
-    # --- 1. Formularz Dodawania ---
     with st.expander("➕ Szybkie dodawanie (Formularz)", expanded=False):
         czy_z_osoba = st.checkbox("Chcę dodać też osobę towarzyszącą (+1)", key="check_plusone")
         c1, c2 = st.columns(2)
@@ -254,16 +243,13 @@ with tab1:
             st.checkbox("✅ Potwierdzenie Przybycia", key="check_rsvp")
         st.button("Dodaj do listy", on_click=obsluga_dodawania, key="btn_goscie")
 
-    # --- 2. Główna Tabela ---
     st.write("---")
     st.subheader(f"📋 Lista Gości ({len(df_goscie)} pozycji)")
 
-    # --- PRZYGOTOWANIE DANYCH DO WYŚWIETLENIA ---
     df_display = df_goscie.copy()
     df_display["Imie_Nazwisko"] = df_display["Imie_Nazwisko"].astype(str).replace("nan", "")
     df_display["Imie_Osoby_Tow"] = df_display["Imie_Osoby_Tow"].astype(str).replace("nan", "")
 
-    # --- RĘCZNE SORTOWANIE ---
     col_sort1, col_sort2 = st.columns([1, 3])
     with col_sort1:
         st.write("**Sortuj wg:**")
@@ -285,7 +271,6 @@ with tab1:
     elif tryb_sortowania == "🔤 Nazwisko (A-Z)":
         df_display = df_display.sort_values(by="Imie_Nazwisko", ascending=True)
 
-    # EDYTOR DANYCH
     edytowane_goscie = st.data_editor(
         df_display,
         num_rows="dynamic",
@@ -300,25 +285,23 @@ with tab1:
         key="editor_goscie"
     )
 
-    # ZAPISYWANIE
     if st.button("💾 Zapisz zmiany", key="save_goscie"):
         df_to_save = edytowane_goscie.copy()
         df_to_save = df_to_save[df_to_save["Imie_Nazwisko"].str.strip() != ""]
 
-        # 1. ZAPISZ DO ARKUSZA (konwersja bool -> "Tak"/"Nie")
+        # Zapis do arkusza
         df_arkusz = df_to_save.copy()
         df_arkusz["RSVP"] = df_arkusz["RSVP"].apply(lambda x: "Tak" if x else "Nie")
         df_arkusz["Zaproszenie_Wyslane"] = df_arkusz["Zaproszenie_Wyslane"].apply(lambda x: "Tak" if x else "Nie")
         df_arkusz = df_arkusz.fillna("")
         aktualizuj_caly_arkusz(worksheet_goscie, df_arkusz)
 
-        # 2. ZAKTUALIZUJ SESSION STATE (bool)
+        # Aktualizacja session_state (bool)
         st.session_state["df_goscie"] = df_to_save
-
         st.success("Zapisano zmiany!")
         st.rerun()
 
-    # --- Statystyki ---
+    # Statystyki
     if not df_goscie.empty:
         potwierdzone = len(df_goscie[df_goscie["RSVP"] == True])
         zaproszone = len(df_goscie[df_goscie["Zaproszenie_Wyslane"] == True])
@@ -334,7 +317,6 @@ with tab1:
             text-align: left;
             margin-bottom: 10px;
         """
-
         k1, k2, k3 = st.columns(3)
         k1.markdown(f"""
             <div style="{card_style}">
@@ -365,7 +347,6 @@ with tab2:
         st.session_state["df_obsluga"] = load_obsluga()
     df_obsluga = st.session_state["df_obsluga"]
 
-    # --- Kategorie do selectboksów ---
     base_cats = ["Inne"]
     if not df_obsluga.empty:
         curr = df_obsluga["Kategoria"].unique().tolist()
@@ -400,7 +381,6 @@ with tab2:
             zapisz_nowy_wiersz(worksheet_obsluga, w_arkusz)
 
             st.toast(f"💰 Dodano: {r}")
-            # Czyszczenie pól
             st.session_state["org_rola"] = ""
             st.session_state["org_info"] = ""
             st.session_state["org_koszt"] = 0.0
@@ -412,7 +392,6 @@ with tab2:
         else:
             st.warning("Wpisz Rolę i Kategorię")
 
-    # --- FORMULARZ DODAWANIA ---
     with st.expander("➕ Dodaj koszt", expanded=False):
         c_select, c_input = st.columns(2)
         with c_select:
@@ -439,7 +418,6 @@ with tab2:
     if fil:
         df_disp = df_disp[df_disp["Kategoria"].isin(fil)]
 
-    # Sortowanie
     c1, c2 = st.columns([1,3])
     with c1:
         st.write("Sortuj:")
@@ -482,7 +460,7 @@ with tab2:
         to_save = to_save.fillna("")
         aktualizuj_caly_arkusz(worksheet_obsluga, to_save)
 
-        # Zaktualizuj session_state (z powrotem bool)
+        # Aktualizacja session_state (bool)
         to_save_bool = to_save.copy()
         if not to_save_bool.empty:
             to_save_bool["Czy_Oplacone"] = to_save_bool["Czy_Oplacone"].apply(lambda x: x == "Tak")
@@ -493,7 +471,7 @@ with tab2:
         st.success("Zapisano!")
         st.rerun()
 
-    # --- PODSUMOWANIE FINANSOWE ---
+    # Podsumowanie finansowe
     if not df_obsluga.empty:
         calc = df_obsluga.copy()
         calc["Koszt"] = pd.to_numeric(calc["Koszt"], errors='coerce').fillna(0.0)
@@ -588,7 +566,7 @@ with tab3:
         termin = st.session_state.get("todo_data", date.today())
         if tresc:
             termin_str = termin.strftime("%Y-%m-%d")
-            nowy_wiersz = [tresc, termin_str, False]  # bool
+            nowy_wiersz = [tresc, termin_str, False]
             # Aktualizacja SESSION STATE
             df = st.session_state["df_zadania"].copy()
             nowy = dict(zip(KOLUMNY_ZADANIA, nowy_wiersz))
@@ -664,7 +642,7 @@ with tab3:
         df_arkusz = df_arkusz.fillna("")
         aktualizuj_caly_arkusz(worksheet_zadania, df_arkusz)
 
-        # Zaktualizuj session_state (bool)
+        # Aktualizacja session_state (bool)
         df_to_save_todo["Czy_Zrobione"] = df_to_save_todo["Czy_Zrobione"].apply(lambda x: x == True)
         st.session_state["df_zadania"] = df_to_save_todo
         st.success("Zaktualizowano listę zadań!")
@@ -726,7 +704,6 @@ with tab4:
         if wybrany_stol_id:
             st.subheader(f"Edycja: {wybrany_stol_id}")
 
-            # Pobieramy dane z session_state (nie z arkusza!)
             row = df_stoly[df_stoly["Numer"] == wybrany_stol_id].iloc[0]
             max_miejsc = int(row["Liczba_Miejsc"])
             ksztalt_stolu = row["Ksztalt"]
@@ -752,11 +729,11 @@ with tab4:
 
                 if st.button("💾 Zapisz układ stołu"):
                     zapis_string = ";".join(nowa_lista_gosci)
-                    # 1. Zapis do ARKUSZA
+                    # Zapis do arkusza (tylko ta komórka)
                     idx = int(df_stoly[df_stoly["Numer"] == wybrany_stol_id].index[0] + 2)
                     worksheet_stoly.update_cell(idx, 4, zapis_string)
                     st.cache_data.clear()
-                    # 2. Aktualizacja SESSION STATE
+                    # Aktualizacja session_state
                     df = st.session_state["df_stoly"].copy()
                     mask = df["Numer"] == wybrany_stol_id
                     df.loc[mask, "Goscie_Lista"] = zapis_string
@@ -764,7 +741,7 @@ with tab4:
                     st.success("Zapisano!")
                     st.rerun()
 
-            # --- WIZUALIZACJA ---
+            # Wizualizacja
             st.write("---")
             st.write(f"**Podgląd: {ksztalt_stolu} ({max_miejsc} os.)**")
 
@@ -857,7 +834,7 @@ with tab4:
             if st.button("🗑️ Usuń ten stół"):
                 idx = int(df_stoly[df_stoly["Numer"] == wybrany_stol_id].index[0] + 2)
                 worksheet_stoly.delete_rows(idx)
-                # Aktualizacja SESSION STATE – usuwamy wiersz
+                # Aktualizacja session_state
                 df = st.session_state["df_stoly"].copy()
                 df = df[df["Numer"] != wybrany_stol_id]
                 st.session_state["df_stoly"] = df
