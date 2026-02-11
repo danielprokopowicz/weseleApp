@@ -49,7 +49,7 @@ def local_css():
         
         /* --- STYLIZACJA KAFELKÓW (METRYK) NA CZARNO --- */
         [data-testid="stMetric"] {
-            background-color: #000000 !important; /* Czarne tło */
+            background-color: #333333 !important; /* Czarne tło */
             border: 1px solid #333; /* Ciemnoszara ramka */
             padding: 15px;
             border-radius: 10px;
@@ -74,14 +74,6 @@ def local_css():
         /* Kolor aktywnej zakładki */
         button[data-baseweb="tab"][aria-selected="true"] {
             color: white !important;
-        }
-
-        /* Styl checkboxów na zielono */
-        input[type=checkbox]:checked {
-            accent-color: #4CAF50 !important;
-        }
-        .stCheckbox > label > div[role="checkbox"][aria-checked="true"] {
-            background-color: #4CAF50 !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -217,7 +209,7 @@ tab1, tab2, tab3, tab4 = st.tabs(["👥 Lista Gości", "🎧 Organizacja", "✅ 
 
 with tab1:
 
-    st.header("Zarządzanie Gośćmi")
+    st.header("👥 Zarządzanie Gośćmi")
 
     # --- 0. Funkcja obsługująca kliknięcie DODAJ ---
 
