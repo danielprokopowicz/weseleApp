@@ -65,13 +65,18 @@ def local_css():
             border-radius: 10px;
             background-color: #262730; /* Tło pod tabelą identyczne jak kafelki */
         }
-
+        
         /* Kolory tekstów w kafelkach */
         [data-testid="stMetricLabel"] {
             color: white !important; /* Beżowy */
         }
         [data-testid="stMetricValue"] {
             color: #4CAF50 !important; /* Zielony */
+        }
+
+        /* --- PRECYZYJNA ZMIANA NA CZERWONY --- */
+        div[data-baseweb="tab-panel"]:nth-of-type(2) div[data-testid="column"]:nth-of-type(3) [data-testid="stMetricValue"] {
+            color: #ff4b4b !important;
         }
         
         /* Powiększenie zakładek (Tabs) */
