@@ -15,6 +15,7 @@ import altair as alt
 import numpy as np
 
 # --- STYLIZACJA CSS (UI) ---
+# --- STYLIZACJA CSS (UI) ---
 def local_css():
     st.markdown("""
     <style>
@@ -23,9 +24,9 @@ def local_css():
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
         }
         
-        /* PRZESUNIĘCIE TYTUŁU WYŻEJ */
+        /* PRZESUNIĘCIE TYTUŁU JESZCZE WYŻEJ */
         .block-container {
-            padding-top: 2rem !important; /* Zmniejszony margines górny */
+            padding-top: 1rem !important; /* Było 2rem, teraz 1rem - tytuł pójdzie w górę */
             padding-bottom: 2rem !important;
         }
         
@@ -39,7 +40,7 @@ def local_css():
             color: #8B4513; /* Brązowy */
             text-align: center;
             font-weight: 1000;
-            margin-bottom: 0px; /* Mniejszy odstęp pod tytułem */
+            margin-bottom: 0px;
         }
         h2 {
             color: #1B4D3E; /* Butelkowa zieleń */
@@ -47,28 +48,36 @@ def local_css():
             padding-bottom: 10px;
         }
         
-        /* --- STYLIZACJA KAFELKÓW (METRYK) --- */
+        /* --- UJEDNOLICENIE KOLORÓW --- */
+        
+        /* 1. Kafelki (Metryki) - Tło ciemnoszare (zamiast czarnego) */
         [data-testid="stMetric"] {
-            background-color: #333333 !important; 
-            border: 1px solid #555; 
+            background-color: #262730 !important; /* Standardowy ciemny kolor kart Streamlit */
+            border: 1px solid #444; /* Delikatna ramka */
             padding: 15px;
             border-radius: 10px;
             box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
         }
+        
+        /* 2. Tabele - Ramka w tym samym kolorze co tło kafelków (opcjonalnie tło też) */
+        [data-testid="stDataEditor"] {
+            border: 1px solid #444 !important; /* Ramka pasująca do kafelków */
+            border-radius: 10px;
+            background-color: #262730; /* Tło pod tabelą identyczne jak kafelki */
+        }
+
+        /* Kolory tekstów w kafelkach */
         [data-testid="stMetricLabel"] {
-            color: #F5F5DC !important; /* Beżowy napis nagłówka kafelka */
+            color: #F5F5DC !important; /* Beżowy */
         }
         [data-testid="stMetricValue"] {
-            color: #4CAF50 !important; /* Zielona wartość liczbowa */
+            color: #4CAF50 !important; /* Zielony */
         }
         
         /* Powiększenie zakładek (Tabs) */
         button[data-baseweb="tab"] {
             font-size: 18px !important;
             font-weight: 600 !important;
-            color: #AAAAAA !important; /* Tekst nieaktywnej zakładki */
-            border-radius: 5px 5px 0 0;
-            margin-right: 2px;
         }
         
         /* Kolor aktywnej zakładki */
