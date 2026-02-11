@@ -12,27 +12,13 @@ from gspread.exceptions import WorksheetNotFound
 def local_css():
     st.markdown("""
     <style>
-        html, body, [class*="css"] {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-        }
-        .block-container {
-            padding-top: 1rem !important;
-            padding-bottom: 2rem !important;
-        }
+        html, body, [class*="css"] { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+        .block-container { padding-top: 1rem !important; padding-bottom: 2rem !important; }
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
-        h1 {
-            color: #8B4513;
-            text-align: center;
-            font-weight: 1000;
-            margin-bottom: 0px;
-        }
-        h2 {
-            color: #1B4D3E;
-            border-bottom: 2px solid #FFFFFF;
-            padding-bottom: 10px;
-        }
+        h1 { color: #8B4513; text-align: center; font-weight: 1000; margin-bottom: 0px; }
+        h2 { color: #1B4D3E; border-bottom: 2px solid #FFFFFF; padding-bottom: 10px; }
         [data-testid="stMetric"] {
             background-color: #262730 !important;
             border: 1px solid #444;
@@ -47,19 +33,10 @@ def local_css():
             border-radius: 10px;
             background-color: #262730;
         }
-        [data-testid="stMetricLabel"] {
-            color: white !important; 
-        }
-        [data-testid="stMetricValue"] {
-            color: #4CAF50 !important;
-        }
-        button[data-baseweb="tab"] {
-            font-size: 18px !important;
-            font-weight: 600 !important;
-        }
-        button[data-baseweb="tab"][aria-selected="true"] {
-            color: white !important;
-        }
+        [data-testid="stMetricLabel"] { color: white !important; }
+        [data-testid="stMetricValue"] { color: #4CAF50 !important; }
+        button[data-baseweb="tab"] { font-size: 18px !important; font-weight: 600 !important; }
+        button[data-baseweb="tab"][aria-selected="true"] { color: white !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -120,7 +97,6 @@ def pobierz_arkusze():
 
     return arkusze
 
-# Pobieramy arkusze – TYLKO RAZ dzięki cache_resource
 arkusze = pobierz_arkusze()
 worksheet_goscie  = arkusze["Goscie"]
 worksheet_obsluga = arkusze["Obsluga"]
@@ -141,7 +117,7 @@ def aktualizuj_caly_arkusz(worksheet, df):
     worksheet.update([df.columns.values.tolist()] + df.values.tolist())
     st.cache_data.clear()
 
-# --- FUNKCJE WCZYTUJĄCE DANE (z konwersją typów) ---
+# --- FUNKCJE WCZYTUJĄCE DANE (z konwersją typów i DODATKOWYM ID) ---
 def load_goscie():
     if worksheet_goscie is None:
         return pd.DataFrame(columns=KOLUMNY_GOSCIE)
@@ -155,7 +131,7 @@ def load_goscie():
 
 def load_obsluga():
     if worksheet_obsluga is None:
-        return pd.DataFrame(columns=KOLUMNY_OBSLUGA)
+        return pd.DataFrame(columns=KOLUMNY_OBSLUGA + ["ID"])
     df = pobierz_dane(worksheet_obsluga)
     if df.empty:
         df = pd.DataFrame(columns=KOLUMNY_OBSLUGA)
@@ -164,6 +140,8 @@ def load_obsluga():
     df["Czy_Oplacone"] = df["Czy_Oplacone"].apply(lambda x: str(x).lower() in ["tak", "true", "1", "yes"])
     df["Czy_Zaliczka_Oplacona"] = df["Czy_Zaliczka_Oplacona"].apply(lambda x: str(x).lower() in ["tak", "true", "1", "yes"])
     df = df.fillna("")
+    # Dodajemy kolumnę ID = numer wiersza w arkuszu (indeks + 2, bo nagłówek to wiersz 1)
+    df.insert(0, "ID", range(2, len(df) + 2))
     return df
 
 def load_zadania():
@@ -215,14 +193,12 @@ with tab1:
             if czy_z_osoba and imie_partnera:
                 nowe_wiersze.append([imie_partnera, f"(Osoba tow. dla: {imie_glowne})", czy_rsvp, czy_zaproszenie])
 
-            # Aktualizacja SESSION STATE
             df = st.session_state["df_goscie"].copy()
             for w in nowe_wiersze:
                 nowy = dict(zip(KOLUMNY_GOSCIE, w))
                 df = pd.concat([df, pd.DataFrame([nowy])], ignore_index=True)
             st.session_state["df_goscie"] = df
 
-            # Zapis do ARKUSZA
             for w in nowe_wiersze:
                 w_arkusz = w.copy()
                 w_arkusz[2] = "Tak" if w_arkusz[2] else "Nie"
@@ -300,19 +276,16 @@ with tab1:
         df_to_save = edytowane_goscie.copy()
         df_to_save = df_to_save[df_to_save["Imie_Nazwisko"].str.strip() != ""]
 
-        # Zapis do arkusza
         df_arkusz = df_to_save.copy()
         df_arkusz["RSVP"] = df_arkusz["RSVP"].apply(lambda x: "Tak" if x else "Nie")
         df_arkusz["Zaproszenie_Wyslane"] = df_arkusz["Zaproszenie_Wyslane"].apply(lambda x: "Tak" if x else "Nie")
         df_arkusz = df_arkusz.fillna("")
         aktualizuj_caly_arkusz(worksheet_goscie, df_arkusz)
 
-        # Aktualizacja session_state (bool)
         st.session_state["df_goscie"] = df_to_save
         st.success("Zapisano zmiany!")
         st.rerun()
 
-    # Statystyki
     if not df_goscie.empty:
         potwierdzone = len(df_goscie[df_goscie["RSVP"] == True])
         zaproszone = len(df_goscie[df_goscie["Zaproszenie_Wyslane"] == True])
@@ -329,27 +302,12 @@ with tab1:
             margin-bottom: 10px;
         """
         k1, k2, k3 = st.columns(3)
-        k1.markdown(f"""
-            <div style="{card_style}">
-                <div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Liczba gości</div>
-                <div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{total_goscie}</div>
-            </div>
-        """, unsafe_allow_html=True)
-        k2.markdown(f"""
-            <div style="{card_style}">
-                <div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Wysłane zaproszenia</div>
-                <div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{zaproszone}</div>
-            </div>
-        """, unsafe_allow_html=True)
-        k3.markdown(f"""
-            <div style="{card_style}">
-                <div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Potwierdzone przybycia</div>
-                <div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{potwierdzone}</div>
-            </div>
-        """, unsafe_allow_html=True)
+        k1.markdown(f'<div style="{card_style}"><div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Liczba gości</div><div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{total_goscie}</div></div>', unsafe_allow_html=True)
+        k2.markdown(f'<div style="{card_style}"><div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Wysłane zaproszenia</div><div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{zaproszone}</div></div>', unsafe_allow_html=True)
+        k3.markdown(f'<div style="{card_style}"><div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Potwierdzone przybycia</div><div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{potwierdzone}</div></div>', unsafe_allow_html=True)
 
 # ==========================
-# ZAKŁADKA 2: ORGANIZACJA
+# ZAKŁADKA 2: ORGANIZACJA (z edycją kosztów dla wybranej roli)
 # ==========================
 with tab2:
     st.header("🎧 Organizacja i Budżet")
@@ -378,18 +336,20 @@ with tab2:
         z_op = st.session_state.get("org_z_op", False)
 
         if r and fin_cat:
-            nowy_wiersz = [fin_cat, r, i, k, op, z, z_op]
+            # Zapis do arkusza
+            w_arkusz = [fin_cat, r, i, k, "Tak" if op else "Nie", z, "Tak" if z_op else "Nie"]
+            zapisz_nowy_wiersz(worksheet_obsluga, w_arkusz)
+            
+            # Pobierz ID nowego wiersza (ostatni wiersz)
+            all_rows = worksheet_obsluga.get_all_values()
+            new_id = len(all_rows)  # bo nagłówek to wiersz 1, dane od 2
+
             # Aktualizacja SESSION STATE
             df = st.session_state["df_obsluga"].copy()
-            nowy = dict(zip(KOLUMNY_OBSLUGA, nowy_wiersz))
+            nowy_wiersz = [new_id, fin_cat, r, i, k, op, z, z_op]  # z ID
+            nowy = dict(zip(["ID"] + KOLUMNY_OBSLUGA, nowy_wiersz))
             df = pd.concat([df, pd.DataFrame([nowy])], ignore_index=True)
             st.session_state["df_obsluga"] = df
-
-            # Zapis do ARKUSZA
-            w_arkusz = nowy_wiersz.copy()
-            w_arkusz[4] = "Tak" if w_arkusz[4] else "Nie"
-            w_arkusz[6] = "Tak" if w_arkusz[6] else "Nie"
-            zapisz_nowy_wiersz(worksheet_obsluga, w_arkusz)
 
             st.toast(f"💰 Dodano: {r}")
             st.session_state["org_rola"] = ""
@@ -424,8 +384,9 @@ with tab2:
     st.write("---")
     st.subheader(f"💸 Wydatki ({len(df_obsluga)})")
 
-    fil = st.multiselect("🔍 Filtruj:", all_cats)
+    # Filtrowanie i sortowanie (bez kolumny ID w widoku)
     df_disp = df_obsluga.copy()
+    fil = st.multiselect("🔍 Filtruj:", all_cats)
     if fil:
         df_disp = df_disp[df_disp["Kategoria"].isin(fil)]
 
@@ -441,13 +402,16 @@ with tab2:
     elif s == "✅ Opłacone":
         df_disp = df_disp.sort_values("Czy_Oplacone", ascending=False)
 
+    # Maksymalny budżet do paska postępu
     max_budget_value = int(df_disp["Koszt"].sum())
     if max_budget_value == 0:
         max_budget_value = 100
 
+    # Data editor – ukrywamy ID, nie pozwalamy na dynamiczne wiersze (żeby nie mieszać ID)
+    # Ustawiamy num_rows="fixed" – nowe wiersze dodajemy tylko przez formularz
     edited_org = st.data_editor(
-        df_disp,
-        num_rows="dynamic",
+        df_disp.drop(columns=["ID"]),  # nie pokazujemy ID
+        num_rows="fixed",
         use_container_width=True,
         hide_index=True,
         key="ed_org",
@@ -463,26 +427,93 @@ with tab2:
     )
 
     if st.button("💾 Zapisz (Budżet)", key="sav_org"):
-        to_save = edited_org.copy()
-        if not to_save.empty:
-            to_save = to_save[to_save["Rola"].str.strip() != ""]
-            to_save["Czy_Oplacone"] = to_save["Czy_Oplacone"].apply(lambda x: "Tak" if x else "Nie")
-            to_save["Czy_Zaliczka_Oplacona"] = to_save["Czy_Zaliczka_Oplacona"].apply(lambda x: "Tak" if x else "Nie")
-        to_save = to_save.fillna("")
-        aktualizuj_caly_arkusz(worksheet_obsluga, to_save)
+        # Łączymy edytowane dane z ID (oryginalne ID z df_obsluga dla tych samych wierszy)
+        # Używamy merge po indeksie, zakładając że kolejność się nie zmieniła (fixed rows)
+        df_to_save = edited_org.copy()
+        if not df_to_save.empty:
+            # Dodajemy z powrotem kolumnę ID z oryginalnego df_disp (musi mieć te same indeksy)
+            df_to_save.insert(0, "ID", df_disp["ID"].values)
+            df_to_save = df_to_save[df_to_save["Rola"].str.strip() != ""]
+            
+            # Zapis do arkusza
+            df_arkusz = df_to_save.drop(columns=["ID"]).copy()
+            df_arkusz["Czy_Oplacone"] = df_arkusz["Czy_Oplacone"].apply(lambda x: "Tak" if x else "Nie")
+            df_arkusz["Czy_Zaliczka_Oplacona"] = df_arkusz["Czy_Zaliczka_Oplacona"].apply(lambda x: "Tak" if x else "Nie")
+            df_arkusz = df_arkusz.fillna("")
+            aktualizuj_caly_arkusz(worksheet_obsluga, df_arkusz)
 
-        # Aktualizacja session_state (bool)
-        to_save_bool = to_save.copy()
-        if not to_save_bool.empty:
-            to_save_bool["Czy_Oplacone"] = to_save_bool["Czy_Oplacone"].apply(lambda x: x == "Tak")
-            to_save_bool["Czy_Zaliczka_Oplacona"] = to_save_bool["Czy_Zaliczka_Oplacona"].apply(lambda x: x == "Tak")
-            to_save_bool["Koszt"] = pd.to_numeric(to_save_bool["Koszt"], errors='coerce').fillna(0.0)
-            to_save_bool["Zaliczka"] = pd.to_numeric(to_save_bool["Zaliczka"], errors='coerce').fillna(0.0)
-        st.session_state["df_obsluga"] = to_save_bool
-        st.success("Zapisano!")
-        st.rerun()
+            # Aktualizacja session_state (bool)
+            df_to_save_bool = df_to_save.copy()
+            df_to_save_bool["Czy_Oplacone"] = df_to_save_bool["Czy_Oplacone"].apply(lambda x: x == True)
+            df_to_save_bool["Czy_Zaliczka_Oplacona"] = df_to_save_bool["Czy_Zaliczka_Oplacona"].apply(lambda x: x == True)
+            df_to_save_bool["Koszt"] = pd.to_numeric(df_to_save_bool["Koszt"], errors='coerce').fillna(0.0)
+            df_to_save_bool["Zaliczka"] = pd.to_numeric(df_to_save_bool["Zaliczka"], errors='coerce').fillna(0.0)
+            st.session_state["df_obsluga"] = df_to_save_bool
+            st.success("Zapisano!")
+            st.rerun()
 
-    # Podsumowanie finansowe
+    # --- NOWOŚĆ: EDYCJA KOSZTÓW DLA WYBRANEJ ROLI (KONKRETNEGO WIERSZA) ---
+    st.write("---")
+    with st.expander("✏️ Edytuj konkretny wpis", expanded=False):
+        if not df_obsluga.empty:
+            # Tworzymy listę opisów z ID, Rolą, Kategorią i Kosztem
+            opcje = df_obsluga.apply(
+                lambda row: f"ID {int(row['ID'])}: {row['Rola']} ({row['Kategoria']}) - {row['Koszt']:.0f} zł",
+                axis=1
+            ).tolist()
+            wybor = st.selectbox("Wybierz wpis do edycji:", opcje, key="edit_select")
+            
+            # Pobieramy ID z wybranego opisu
+            selected_id = int(wybor.split(":")[0].replace("ID", "").strip())
+            selected_row = df_obsluga[df_obsluga["ID"] == selected_id].iloc[0]
+            
+            st.markdown(f"**Edycja: {selected_row['Rola']}**")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                new_koszt = st.number_input("Koszt całkowity", value=float(selected_row["Koszt"]), step=100.0, key="edit_koszt")
+                new_op = st.checkbox("Całość opłacona?", value=selected_row["Czy_Oplacone"], key="edit_op")
+            with col2:
+                new_zal = st.number_input("Zaliczka", value=float(selected_row["Zaliczka"]), step=100.0, key="edit_zal")
+                new_z_op = st.checkbox("Zaliczka opłacona?", value=selected_row["Czy_Zaliczka_Oplacona"], key="edit_z_op")
+            
+            new_info = st.text_input("Informacje dodatkowe", value=selected_row["Informacje"], key="edit_info")
+            
+            if st.button("💾 Zaktualizuj wpis", key="edit_save"):
+                # Mapa kolumn w arkuszu (bez ID)
+                col_map = {
+                    "Kategoria": 1,
+                    "Rola": 2,
+                    "Informacje": 3,
+                    "Koszt": 4,
+                    "Czy_Oplacone": 5,
+                    "Zaliczka": 6,
+                    "Czy_Zaliczka_Oplacona": 7
+                }
+                # Aktualizacja arkusza – każda kolumna osobno
+                worksheet_obsluga.update_cell(selected_id, col_map["Koszt"], new_koszt)
+                worksheet_obsluga.update_cell(selected_id, col_map["Czy_Oplacone"], "Tak" if new_op else "Nie")
+                worksheet_obsluga.update_cell(selected_id, col_map["Zaliczka"], new_zal)
+                worksheet_obsluga.update_cell(selected_id, col_map["Czy_Zaliczka_Oplacona"], "Tak" if new_z_op else "Nie")
+                worksheet_obsluga.update_cell(selected_id, col_map["Informacje"], new_info)
+                st.cache_data.clear()
+                
+                # Aktualizacja session_state
+                df = st.session_state["df_obsluga"].copy()
+                mask = df["ID"] == selected_id
+                df.loc[mask, "Koszt"] = new_koszt
+                df.loc[mask, "Czy_Oplacone"] = new_op
+                df.loc[mask, "Zaliczka"] = new_zal
+                df.loc[mask, "Czy_Zaliczka_Oplacona"] = new_z_op
+                df.loc[mask, "Informacje"] = new_info
+                st.session_state["df_obsluga"] = df
+                
+                st.success("Zaktualizowano!")
+                st.rerun()
+        else:
+            st.info("Brak wpisów do edycji.")
+
+    # --- PODSUMOWANIE FINANSOWE (bez zmian) ---
     if not df_obsluga.empty:
         calc = df_obsluga.copy()
         calc["Koszt"] = pd.to_numeric(calc["Koszt"], errors='coerce').fillna(0.0)
@@ -507,25 +538,9 @@ with tab2:
             margin-bottom: 10px;
         """
         c1, c2, c3 = st.columns(3)
-        c1.markdown(f"""
-            <div style="{card_style}">
-                <div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Łącznie</div>
-                <div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{total:,.0f} zł</div>
-            </div>
-        """, unsafe_allow_html=True)
-        c2.markdown(f"""
-            <div style="{card_style}">
-                <div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Zapłacono</div>
-                <div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{paid:,.0f} zł</div>
-            </div>
-        """, unsafe_allow_html=True)
-        c3.markdown(f"""
-            <div style="{card_style}">
-                <div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Do zapłaty</div>
-                <div style="color: #ff4b4b; font-size: 30px; font-weight: 700;">{to_pay:,.0f} zł</div>
-                <div style="color: #ff4b4b; font-size: 14px;">▼ -{to_pay:,.0f}</div>
-            </div>
-        """, unsafe_allow_html=True)
+        c1.markdown(f'<div style="{card_style}"><div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Łącznie</div><div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{total:,.0f} zł</div></div>', unsafe_allow_html=True)
+        c2.markdown(f'<div style="{card_style}"><div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Zapłacono</div><div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{paid:,.0f} zł</div></div>', unsafe_allow_html=True)
+        c3.markdown(f'<div style="{card_style}"><div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Do zapłaty</div><div style="color: #ff4b4b; font-size: 30px; font-weight: 700;">{to_pay:,.0f} zł</div><div style="color: #ff4b4b; font-size: 14px;">▼ -{to_pay:,.0f}</div></div>', unsafe_allow_html=True)
 
         st.write("---")
         st.subheader("📊 Struktura Wydatków")
@@ -578,13 +593,11 @@ with tab3:
         if tresc:
             termin_str = termin.strftime("%Y-%m-%d")
             nowy_wiersz = [tresc, termin_str, False]
-            # Aktualizacja SESSION STATE
             df = st.session_state["df_zadania"].copy()
             nowy = dict(zip(KOLUMNY_ZADANIA, nowy_wiersz))
             df = pd.concat([df, pd.DataFrame([nowy])], ignore_index=True)
             st.session_state["df_zadania"] = df
 
-            # Zapis do ARKUSZA
             w_arkusz = nowy_wiersz.copy()
             w_arkusz[2] = "Tak" if w_arkusz[2] else "Nie"
             zapisz_nowy_wiersz(worksheet_zadania, w_arkusz)
@@ -653,7 +666,6 @@ with tab3:
         df_arkusz = df_arkusz.fillna("")
         aktualizuj_caly_arkusz(worksheet_zadania, df_arkusz)
 
-        # Aktualizacja session_state (bool)
         df_to_save_todo["Czy_Zrobione"] = df_to_save_todo["Czy_Zrobione"].apply(lambda x: x == True)
         st.session_state["df_zadania"] = df_to_save_todo
         st.success("Zaktualizowano listę zadań!")
@@ -691,13 +703,11 @@ with tab4:
             if submitted and nr_stolu:
                 pusta_lista = ";".join(["" for _ in range(miejsca)])
                 nowy_wiersz = [nr_stolu, ksztalt, miejsca, pusta_lista]
-                # Aktualizacja SESSION STATE
                 df = st.session_state["df_stoly"].copy()
                 nowy = dict(zip(KOLUMNY_STOLY, nowy_wiersz))
                 df = pd.concat([df, pd.DataFrame([nowy])], ignore_index=True)
                 st.session_state["df_stoly"] = df
 
-                # Zapis do ARKUSZA
                 zapisz_nowy_wiersz(worksheet_stoly, nowy_wiersz)
                 st.toast(f"Dodano stół: {nr_stolu}")
                 st.rerun()
@@ -740,11 +750,9 @@ with tab4:
 
                 if st.button("💾 Zapisz układ stołu"):
                     zapis_string = ";".join(nowa_lista_gosci)
-                    # Zapis do arkusza (tylko ta komórka)
                     idx = int(df_stoly[df_stoly["Numer"] == wybrany_stol_id].index[0] + 2)
                     worksheet_stoly.update_cell(idx, 4, zapis_string)
                     st.cache_data.clear()
-                    # Aktualizacja session_state
                     df = st.session_state["df_stoly"].copy()
                     mask = df["Numer"] == wybrany_stol_id
                     df.loc[mask, "Goscie_Lista"] = zapis_string
@@ -752,7 +760,6 @@ with tab4:
                     st.success("Zapisano!")
                     st.rerun()
 
-            # Wizualizacja
             st.write("---")
             st.write(f"**Podgląd: {ksztalt_stolu} ({max_miejsc} os.)**")
 
@@ -771,18 +778,15 @@ with tab4:
                 R_STOL = 1.1
                 R_KRZESLO_SRODEK = 1.4
                 R_TEKST = 1.65
-
                 circle = plt.Circle((0, 0), R_STOL, color=table_color, ec=edge_color, lw=4)
                 ax.add_artist(circle)
                 ax.text(0, 0, wybrany_stol_id, ha='center', va='center', fontsize=24, fontweight='bold', color='white')
-
                 for i in range(max_miejsc):
                     angle = 2 * np.pi * i / max_miejsc
                     cx = R_KRZESLO_SRODEK * np.cos(angle)
                     cy = R_KRZESLO_SRODEK * np.sin(angle)
                     seat = plt.Circle((cx, cy), 0.21, color=seat_color, alpha=1.0)
                     ax.add_artist(seat)
-
                     guest_name = nowa_lista_gosci[i]
                     tx = R_TEKST * np.cos(angle)
                     ty = R_TEKST * np.sin(angle)
@@ -792,14 +796,10 @@ with tab4:
                         ha = 'right'
                     else:
                         ha = 'left'
-
                     if guest_name:
-                        ax.text(tx, ty, guest_name, ha=ha, va='center',
-                                rotation=rot_deg, rotation_mode='anchor',
-                                fontsize=16, color=text_color, fontweight='bold')
+                        ax.text(tx, ty, guest_name, ha=ha, va='center', rotation=rot_deg, rotation_mode='anchor', fontsize=16, color=text_color, fontweight='bold')
                     else:
                         ax.text(cx, cy, str(i+1), ha='center', va='center', fontsize=16, color='white')
-
                 limit = 2.2
                 ax.set_xlim(-limit, limit)
                 ax.set_ylim(-limit, limit)
@@ -810,10 +810,8 @@ with tab4:
                 rect = plt.Rectangle((-W_STOL/2, -H_STOL/2), W_STOL, H_STOL, color=table_color, ec=edge_color, lw=4)
                 ax.add_artist(rect)
                 ax.text(0, 0, wybrany_stol_id, ha='center', va='center', rotation=90, fontsize=24, fontweight='bold', color='white')
-
                 side_count = (max_miejsc + 1) // 2
                 DIST_X = 1.3
-
                 for i in range(max_miejsc):
                     guest_name = nowa_lista_gosci[i]
                     if i < side_count:
@@ -826,16 +824,12 @@ with tab4:
                         y_pos = np.linspace(-H_STOL/2 + 0.4, H_STOL/2 - 0.4, max_miejsc - side_count)[i - side_count]
                         ha = 'left'
                         text_offset_x = 0.25
-
                     seat = plt.Circle((x_pos, y_pos), 0.21, color=seat_color, alpha=1.0)
                     ax.add_artist(seat)
-
                     if guest_name:
-                        ax.text(x_pos + text_offset_x, y_pos, guest_name, ha=ha, va='center',
-                                fontsize=16, color=text_color, fontweight='bold')
+                        ax.text(x_pos + text_offset_x, y_pos, guest_name, ha=ha, va='center', fontsize=16, color=text_color, fontweight='bold')
                     else:
                         ax.text(x_pos, y_pos, str(i+1), ha='center', va='center', fontsize=16, color='white')
-
                 ax.set_xlim(-2.8, 2.8)
                 ax.set_ylim(-2.8, 2.8)
 
@@ -845,7 +839,6 @@ with tab4:
             if st.button("🗑️ Usuń ten stół"):
                 idx = int(df_stoly[df_stoly["Numer"] == wybrany_stol_id].index[0] + 2)
                 worksheet_stoly.delete_rows(idx)
-                # Aktualizacja session_state
                 df = st.session_state["df_stoly"].copy()
                 df = df[df["Numer"] != wybrany_stol_id]
                 st.session_state["df_stoly"] = df
