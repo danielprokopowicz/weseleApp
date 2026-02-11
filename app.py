@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import altair as alt
 import numpy as np
 
-# --- STYLIZACJA CSS (UI) ---
+# --- STYLIZACJA CSS (bez zmian) ---
 def local_css():
     st.markdown("""
     <style>
@@ -18,7 +18,7 @@ def local_css():
         
         /* PRZESUNIĘCIE TYTUŁU WYŻEJ */
         .block-container {
-            padding-top: 1rem !important; /* Było 2rem, teraz 1rem - tytuł pójdzie w górę */
+            padding-top: 1rem !important;
             padding-bottom: 2rem !important;
         }
         
@@ -29,23 +29,20 @@ def local_css():
         
         /* Stylizacja nagłówków */
         h1 {
-            color: #8B4513; /* Brązowy */
+            color: #8B4513;
             text-align: center;
             font-weight: 1000;
             margin-bottom: 0px;
         }
         h2 {
-            color: #1B4D3E; /* Butelkowa zieleń */
+            color: #1B4D3E;
             border-bottom: 2px solid #FFFFFF;
             padding-bottom: 10px;
         }
         
-        /* --- UJEDNOLICENIE KOLORÓW --- */
-        
-        /* 1. Kafelki (Metryki) - Tło ciemnoszare */
         [data-testid="stMetric"] {
-            background-color: #262730 !important; /* Standardowy ciemny kolor kart Streamlit */
-            border: 1px solid #444; /* Delikatna ramka */
+            background-color: #262730 !important;
+            border: 1px solid #444;
             padding: 15px;
             border-radius: 10px;
             box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
@@ -53,28 +50,24 @@ def local_css():
             margin-bottom: 10px;
         }
         
-        /* 2. Tabele - Ramka w tym samym kolorze co tło kafelków (opcjonalnie tło też) */
         [data-testid="stDataEditor"] {
-            border: 1px solid #444 !important; /* Ramka pasująca do kafelków */
+            border: 1px solid #444 !important;
             border-radius: 10px;
-            background-color: #262730; /* Tło pod tabelą identyczne jak kafelki */
+            background-color: #262730;
         }
         
-        /* Kolory tekstów w kafelkach */
         [data-testid="stMetricLabel"] {
             color: white !important; 
         }
         [data-testid="stMetricValue"] {
-            color: #4CAF50 !important; /* Zielony */
+            color: #4CAF50 !important;
         }
         
-        /* Powiększenie zakładek (Tabs) */
         button[data-baseweb="tab"] {
             font-size: 18px !important;
             font-weight: 600 !important;
         }
         
-        /* Kolor aktywnej zakładki */
         button[data-baseweb="tab"][aria-selected="true"] {
             color: white !important;
         }
@@ -88,60 +81,107 @@ st.set_page_config(page_title="Menadżer Ślubny", page_icon="💍", layout="wid
 local_css()
 
 # --- STAŁE ---
-LISTA_KATEGORII_BAZA = [
-    "Inne"
-]
+LISTA_KATEGORII_BAZA = ["Inne"]
+
+# --- NAZWY KOLUMN DLA KAŻDEGO ARKUSZA ---
+KOLUMNY_GOSCIE   = ["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP", "Zaproszenie_Wyslane"]
+KOLUMNY_OBSLUGA  = ["Kategoria", "Rola", "Informacje", "Koszt", "Czy_Oplacone", "Zaliczka", "Czy_Zaliczka_Oplacona"]
+KOLUMNY_ZADANIA  = ["Zadanie", "Termin", "Czy_Zrobione"]
+KOLUMNY_STOLY    = ["Numer", "Ksztalt", "Liczba_Miejsc", "Goscie_Lista"]
 
 # --- POŁĄCZENIE Z GOOGLE SHEETS ---
 @st.cache_resource
 def polacz_z_arkuszem():
-    # Pobieramy sekrety
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds_dict = dict(st.secrets["gcp_service_account"])
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
 
-    # Otwieramy arkusz
     try:
         sheet = client.open("Wesele_Baza")
         return sheet
     except Exception as e:
         st.error(f"⚠️ Nie znaleziono arkusza 'Wesele_Baza'. Upewnij się, że nazwa jest poprawna i udostępniłeś go mailowi robota.")
-        st.stop()      
+        st.stop()
 
-# Inicjalizacja połączenia
+sh = polacz_z_arkuszem()
+worksheet_goscie  = sh.worksheet("Goscie")
+worksheet_obsluga = sh.worksheet("Obsluga")
 try:
-    sh = polacz_z_arkuszem()
-    worksheet_goscie = sh.worksheet("Goscie")
-    worksheet_obsluga = sh.worksheet("Obsluga")
-    try:
-        worksheet_zadania = sh.worksheet("Zadania")
-    except:
-        worksheet_zadania = None
-        st.warning("⚠️ Brakuje zakładki 'Zadania' w Arkuszu Google! Stwórz ją, aby lista zadań działała.")
-    try:
-        worksheet_stoly = sh.worksheet("Stoly")
-    except:
-        worksheet_stoly = None
-        st.warning("⚠️ Brakuje zakładki 'Stoly' w Arkuszu Google! Utwórz ją z nagłówkami: Numer, Ksztalt, Liczba_Miejsc, Goscie_Lista")       
+    worksheet_zadania = sh.worksheet("Zadania")
+except:
+    worksheet_zadania = None
+    st.warning("⚠️ Brakuje zakładki 'Zadania' w Arkuszu Google! Stwórz ją, aby lista zadań działała.")
+try:
+    worksheet_stoly = sh.worksheet("Stoly")
+except:
+    worksheet_stoly = None
+    st.warning("⚠️ Brakuje zakładki 'Stoly' w Arkuszu Google! Utwórz ją z nagłówkami: Numer, Ksztalt, Liczba_Miejsc, Goscie_Lista")
 
-except Exception as e:
-    st.error(f"Błąd arkusza: {e}.")
-    st.stop()
-
-# --- FUNKCJE POMOCNICZE ---
+# --- FUNKCJE POMOCNICZE (odczyt / zapis) ---
 def pobierz_dane(_worksheet):
+    """Zwraca DataFrame z arkusza (surowy odczyt)."""
     dane = _worksheet.get_all_records()
     return pd.DataFrame(dane)
 
 def zapisz_nowy_wiersz(worksheet, lista_wartosci):
+    """Dodaje wiersz do arkusza i czyści cache."""
     worksheet.append_row(lista_wartosci)
-    st.cache_data.clear() 
+    st.cache_data.clear()
 
 def aktualizuj_caly_arkusz(worksheet, df):
+    """Zamienia cały arkusz na nowy DataFrame i czyści cache."""
     worksheet.clear()
     worksheet.update([df.columns.values.tolist()] + df.values.tolist())
     st.cache_data.clear()
+
+# --- FUNKCJE WCZYTUJĄCE DANE (z konwersją typów) ---
+def load_goscie():
+    if worksheet_goscie is None:
+        return pd.DataFrame(columns=KOLUMNY_GOSCIE)
+    df = pobierz_dane(worksheet_goscie)
+    if df.empty:
+        df = pd.DataFrame(columns=KOLUMNY_GOSCIE)
+    # Konwersja kolumn logicznych na bool
+    df["RSVP"] = df["RSVP"].apply(lambda x: str(x).lower() in ["tak", "true", "1", "yes"])
+    df["Zaproszenie_Wyslane"] = df["Zaproszenie_Wyslane"].apply(lambda x: str(x).lower() in ["tak", "true", "1", "yes"])
+    df = df.fillna("")
+    return df
+
+def load_obsluga():
+    if worksheet_obsluga is None:
+        return pd.DataFrame(columns=KOLUMNY_OBSLUGA)
+    df = pobierz_dane(worksheet_obsluga)
+    if df.empty:
+        df = pd.DataFrame(columns=KOLUMNY_OBSLUGA)
+    df["Koszt"] = pd.to_numeric(df["Koszt"], errors='coerce').fillna(0.0)
+    df["Zaliczka"] = pd.to_numeric(df["Zaliczka"], errors='coerce').fillna(0.0)
+    df["Czy_Oplacone"] = df["Czy_Oplacone"].apply(lambda x: str(x).lower() in ["tak", "true", "1", "yes"])
+    df["Czy_Zaliczka_Oplacona"] = df["Czy_Zaliczka_Oplacona"].apply(lambda x: str(x).lower() in ["tak", "true", "1", "yes"])
+    df = df.fillna("")
+    return df
+
+def load_zadania():
+    if worksheet_zadania is None:
+        return pd.DataFrame(columns=KOLUMNY_ZADANIA)
+    df = pobierz_dane(worksheet_zadania)
+    if df.empty:
+        df = pd.DataFrame(columns=KOLUMNY_ZADANIA)
+    df["Termin"] = pd.to_datetime(df["Termin"], errors='coerce').dt.date
+    df["Czy_Zrobione"] = df["Czy_Zrobione"].apply(lambda x: str(x).lower() in ["tak", "true", "1", "yes"])
+    df = df.fillna("")
+    return df
+
+def load_stoly():
+    if worksheet_stoly is None:
+        return pd.DataFrame(columns=KOLUMNY_STOLY)
+    df = pobierz_dane(worksheet_stoly)
+    if df.empty:
+        df = pd.DataFrame(columns=KOLUMNY_STOLY)
+    df["Numer"] = df["Numer"].astype(str)
+    df["Liczba_Miejsc"] = pd.to_numeric(df["Liczba_Miejsc"], errors='coerce').fillna(0).astype(int)
+    df = df.fillna("")
+    return df
 
 # --- UI APLIKACJI ---
 st.title("💍 Menadżer Ślubny")
@@ -152,7 +192,13 @@ tab1, tab2, tab3, tab4 = st.tabs(["👥 Lista Gości", "🎧 Organizacja", "✅ 
 # ==========================
 with tab1:
     st.header("👥 Zarządzanie Gośćmi")
-    # --- 0. Funkcja obsługująca kliknięcie DODAJ ---
+    
+    # --- WCZYTANIE DANYCH DO SESSION STATE (TYLKO RAZ) ---
+    if "df_goscie" not in st.session_state:
+        st.session_state["df_goscie"] = load_goscie()
+    df_goscie = st.session_state["df_goscie"]
+
+    # --- Funkcja obsługująca kliknięcie DODAJ ---
     def obsluga_dodawania():
         imie_glowne = st.session_state.get("input_imie", "")
         imie_partnera = st.session_state.get("input_partner", "")
@@ -161,64 +207,61 @@ with tab1:
         czy_zaproszenie = st.session_state.get("check_invite", False)
 
         if imie_glowne:
-            rsvp_text = "Tak" if czy_rsvp else "Nie"
-            invite_text = "Tak" if czy_zaproszenie else "Nie"
-            zapisz_nowy_wiersz(worksheet_goscie, [imie_glowne, "", rsvp_text, invite_text])         
-
+            # 1. Przygotuj nowe wiersze
+            nowe_wiersze = []
+            nowe_wiersze.append([imie_glowne, "", czy_rsvp, czy_zaproszenie])
             if czy_z_osoba and imie_partnera:
-                zapisz_nowy_wiersz(worksheet_goscie, [imie_partnera, f"(Osoba tow. dla: {imie_glowne})", rsvp_text, invite_text])          
+                nowe_wiersze.append([imie_partnera, f"(Osoba tow. dla: {imie_glowne})", czy_rsvp, czy_zaproszenie])
 
-            st.toast(f"✅ Dodano: {imie_glowne}")           
+            # 2. Aktualizacja SESSION STATE (natychmiast widoczne)
+            df = st.session_state["df_goscie"].copy()
+            for w in nowe_wiersze:
+                nowy = dict(zip(KOLUMNY_GOSCIE, w))
+                df = pd.concat([df, pd.DataFrame([nowy])], ignore_index=True)
+            st.session_state["df_goscie"] = df
+
+            # 3. Zapis do ARKUSZA (konwersja bool -> "Tak"/"Nie")
+            for w in nowe_wiersze:
+                w_arkusz = w.copy()
+                w_arkusz[2] = "Tak" if w_arkusz[2] else "Nie"
+                w_arkusz[3] = "Tak" if w_arkusz[3] else "Nie"
+                zapisz_nowy_wiersz(worksheet_goscie, w_arkusz)
+
+            st.toast(f"✅ Dodano: {imie_glowne}")
+            # 4. Wyczyść pola formularza
             st.session_state["input_imie"] = ""
             st.session_state["input_partner"] = ""
             st.session_state["check_rsvp"] = False
             st.session_state["check_plusone"] = False
             st.session_state["check_invite"] = False
+            st.rerun()
         else:
             st.warning("Musisz wpisać imię głównego gościa!")
-    # Pobieranie danych
-    try:
-        df_goscie = pobierz_dane(worksheet_goscie)
-    except Exception as e:
-        st.error(f"Błąd w zakładce GOŚCIE: {e}. Sprawdź czy dodałeś kolumnę 'Zaproszenie_Wyslane' w D1.")
-        st.stop()   
-
-    if df_goscie.empty:
-        df_goscie = pd.DataFrame(columns=["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP", "Zaproszenie_Wyslane"])
-
-    if "Zaproszenie_Wyslane" not in df_goscie.columns:
-        df_goscie["Zaproszenie_Wyslane"] = "Nie"
 
     # --- 1. Formularz Dodawania ---
     with st.expander("➕ Szybkie dodawanie (Formularz)", expanded=False):
-        czy_z_osoba = st.checkbox("Chcę dodać też osobę towarzyszącą (+1)", key="check_plusone")      
+        czy_z_osoba = st.checkbox("Chcę dodać też osobę towarzyszącą (+1)", key="check_plusone")
         c1, c2 = st.columns(2)
         with c1:
             st.text_input("Imię i Nazwisko Gościa", key="input_imie")
         with c2:
             if czy_z_osoba:
-                st.text_input("Imię Osoby Towarzyszącej", key="input_partner")       
+                st.text_input("Imię Osoby Towarzyszącej", key="input_partner")
         k1, k2 = st.columns(2)
         with k1:
             st.checkbox("✉️ Zaproszenie wysłane?", key="check_invite")
         with k2:
-            st.checkbox("✅ Potwierdzenie Przybycia", key="check_rsvp")       
+            st.checkbox("✅ Potwierdzenie Przybycia", key="check_rsvp")
         st.button("Dodaj do listy", on_click=obsluga_dodawania, key="btn_goscie")
 
     # --- 2. Główna Tabela ---
     st.write("---")
     st.subheader(f"📋 Lista Gości ({len(df_goscie)} pozycji)")
 
-    # --- PRZYGOTOWANIE DANYCH ---
-    df_display = df_goscie.copy()  
+    # --- PRZYGOTOWANIE DANYCH DO WYŚWIETLENIA ---
+    df_display = df_goscie.copy()
     df_display["Imie_Nazwisko"] = df_display["Imie_Nazwisko"].astype(str).replace("nan", "")
     df_display["Imie_Osoby_Tow"] = df_display["Imie_Osoby_Tow"].astype(str).replace("nan", "")
-
-    def parsuj_bool(wartosc):
-        return str(wartosc).lower() in ["tak", "true", "1", "yes"]  
-
-    df_display["RSVP"] = df_display["RSVP"].apply(parsuj_bool)
-    df_display["Zaproszenie_Wyslane"] = df_display["Zaproszenie_Wyslane"].apply(parsuj_bool)
 
     # --- RĘCZNE SORTOWANIE ---
     col_sort1, col_sort2 = st.columns([1, 3])
@@ -257,25 +300,31 @@ with tab1:
         key="editor_goscie"
     )
 
-    # ZAPISYWANIE - TUTAJ BYŁ BŁĄD, DODAŁEM KEY="save_goscie"
+    # ZAPISYWANIE
     if st.button("💾 Zapisz zmiany", key="save_goscie"):
-        df_to_save = edytowane_goscie.copy()       
-        df_to_save = df_to_save[df_to_save["Imie_Nazwisko"].str.strip() != ""]       
-        df_to_save["RSVP"] = df_to_save["RSVP"].apply(lambda x: "Tak" if x else "Nie")
-        df_to_save["Zaproszenie_Wyslane"] = df_to_save["Zaproszenie_Wyslane"].apply(lambda x: "Tak" if x else "Nie")       
-        df_to_save = df_to_save.fillna("")       
-        aktualizuj_caly_arkusz(worksheet_goscie, df_to_save)
+        df_to_save = edytowane_goscie.copy()
+        df_to_save = df_to_save[df_to_save["Imie_Nazwisko"].str.strip() != ""]
+
+        # 1. ZAPISZ DO ARKUSZA (konwersja bool -> "Tak"/"Nie")
+        df_arkusz = df_to_save.copy()
+        df_arkusz["RSVP"] = df_arkusz["RSVP"].apply(lambda x: "Tak" if x else "Nie")
+        df_arkusz["Zaproszenie_Wyslane"] = df_arkusz["Zaproszenie_Wyslane"].apply(lambda x: "Tak" if x else "Nie")
+        df_arkusz = df_arkusz.fillna("")
+        aktualizuj_caly_arkusz(worksheet_goscie, df_arkusz)
+
+        # 2. ZAKTUALIZUJ SESSION STATE (bool)
+        st.session_state["df_goscie"] = df_to_save
+
         st.success("Zapisano zmiany!")
         st.rerun()
-    # Statystyki
+
+    # --- Statystyki ---
     if not df_goscie.empty:
-        potwierdzone = len(df_goscie[df_goscie["RSVP"].astype(str) == "Tak"])
-        zaproszone = len(df_goscie[df_goscie["Zaproszenie_Wyslane"].astype(str) == "Tak"])       
+        potwierdzone = len(df_goscie[df_goscie["RSVP"] == True])
+        zaproszone = len(df_goscie[df_goscie["Zaproszenie_Wyslane"] == True])
         total_goscie = len(df_goscie)
 
         st.write("---")
-
-        # Styl kafelka (taki sam jak w Organizacji)
         card_style = """
             background-color: #262730; 
             border: 1px solid #444; 
@@ -287,24 +336,18 @@ with tab1:
         """
 
         k1, k2, k3 = st.columns(3)
-
-        # 1. Liczba Gości
         k1.markdown(f"""
             <div style="{card_style}">
                 <div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Liczba gości</div>
                 <div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{total_goscie}</div>
             </div>
         """, unsafe_allow_html=True)
-
-        # 2. Wysłane Zaproszenia
         k2.markdown(f"""
             <div style="{card_style}">
                 <div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Wysłane zaproszenia</div>
                 <div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{zaproszone}</div>
             </div>
         """, unsafe_allow_html=True)
-
-        # 3. Potwierdzone Przybycia
         k3.markdown(f"""
             <div style="{card_style}">
                 <div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Potwierdzone przybycia</div>
@@ -317,27 +360,18 @@ with tab1:
 # ==========================
 with tab2:
     st.header("🎧 Organizacja i Budżet")
-
-    try:
-        df_obsluga = pobierz_dane(worksheet_obsluga)
-    except:
-        st.error("Błąd danych.")
-        st.stop()
-
-    org_cols = ["Kategoria", "Rola", "Informacje", "Koszt", "Czy_Oplacone", "Zaliczka", "Czy_Zaliczka_Oplacona"]
-    if df_obsluga.empty: df_obsluga = pd.DataFrame(columns=org_cols)
     
-    df_obsluga.columns = df_obsluga.columns.str.strip()
-    for c in org_cols:
-        if c not in df_obsluga.columns:
-            df_obsluga[c] = ""
-            if c == "Kategoria": df_obsluga[c] = "Inne"
+    if "df_obsluga" not in st.session_state:
+        st.session_state["df_obsluga"] = load_obsluga()
+    df_obsluga = st.session_state["df_obsluga"]
 
+    # --- Kategorie do selectboksów ---
     base_cats = ["Inne"]
     if not df_obsluga.empty:
         curr = df_obsluga["Kategoria"].unique().tolist()
         all_cats = sorted(list(set(base_cats + [x for x in curr if str(x).strip() != ""])))
-    else: all_cats = sorted(base_cats)
+    else:
+        all_cats = sorted(base_cats)
     select_opts = all_cats + ["➕ Stwórz nową..."]
 
     def dodaj_usluge():
@@ -352,8 +386,21 @@ with tab2:
         z_op = st.session_state.get("org_z_op", False)
 
         if r and fin_cat:
-            zapisz_nowy_wiersz(worksheet_obsluga, [fin_cat, r, i, k, "Tak" if op else "Nie", z, "Tak" if z_op else "Nie"])
+            nowy_wiersz = [fin_cat, r, i, k, op, z, z_op]
+            # Aktualizacja SESSION STATE
+            df = st.session_state["df_obsluga"].copy()
+            nowy = dict(zip(KOLUMNY_OBSLUGA, nowy_wiersz))
+            df = pd.concat([df, pd.DataFrame([nowy])], ignore_index=True)
+            st.session_state["df_obsluga"] = df
+
+            # Zapis do ARKUSZA
+            w_arkusz = nowy_wiersz.copy()
+            w_arkusz[4] = "Tak" if w_arkusz[4] else "Nie"
+            w_arkusz[6] = "Tak" if w_arkusz[6] else "Nie"
+            zapisz_nowy_wiersz(worksheet_obsluga, w_arkusz)
+
             st.toast(f"💰 Dodano: {r}")
+            # Czyszczenie pól
             st.session_state["org_rola"] = ""
             st.session_state["org_info"] = ""
             st.session_state["org_koszt"] = 0.0
@@ -361,21 +408,19 @@ with tab2:
             st.session_state["org_zal"] = 0.0
             st.session_state["org_z_op"] = False
             st.session_state["org_k_inp"] = ""
-        else: st.warning("Wpisz Rolę i Kategorię")
+            st.rerun()
+        else:
+            st.warning("Wpisz Rolę i Kategorię")
 
-    # --- NOWY UKŁAD FORMULARZA ---
+    # --- FORMULARZ DODAWANIA ---
     with st.expander("➕ Dodaj koszt", expanded=False):
-        # 1. Kategoria i Nowa Nazwa
         c_select, c_input = st.columns(2)
         with c_select:
             sel = st.selectbox("Kategoria", select_opts, key="org_k_sel")
         with c_input:
-            if sel == "➕ Stwórz nową...": st.text_input("Nowa nazwa:", key="org_k_inp")
-        
-        # 2. Rola
+            if sel == "➕ Stwórz nową...":
+                st.text_input("Nowa nazwa:", key="org_k_inp")
         st.text_input("Rola", key="org_rola", placeholder="np. DJ, Florystka")
-        
-        # 3. Finanse OBOK SIEBIE (Koszt i Zaliczka)
         c1, c2 = st.columns(2)
         with c1:
             st.number_input("Koszt Całkowity (zł)", step=100.0, key="org_koszt")
@@ -383,53 +428,45 @@ with tab2:
         with c2:
             st.number_input("Zaliczka (zł)", step=100.0, key="org_zal")
             st.checkbox("Zaliczka opłacona?", key="org_z_op")
-            
-        # 4. Info NA DOLE (Szerokie)
         st.text_input("Informacje dodatkowe", key="org_info", placeholder="Kontakt, termin płatności...")
-        
         st.button("Dodaj", on_click=dodaj_usluge, key="btn_org")
 
     st.write("---")
     st.subheader(f"💸 Wydatki ({len(df_obsluga)})")
-    
+
     fil = st.multiselect("🔍 Filtruj:", all_cats)
     df_disp = df_obsluga.copy()
-    if fil: df_disp = df_disp[df_disp["Kategoria"].isin(fil)]
+    if fil:
+        df_disp = df_disp[df_disp["Kategoria"].isin(fil)]
 
-    # Konwersja typów
-    df_disp["Koszt"] = pd.to_numeric(df_disp["Koszt"], errors='coerce').fillna(0.0)
-    df_disp["Zaliczka"] = pd.to_numeric(df_disp["Zaliczka"], errors='coerce').fillna(0.0)
-    def fix_bool(x): return str(x).lower().strip() in ["tak", "true", "1", "yes"]
-    df_disp["Czy_Oplacone"] = df_disp["Czy_Oplacone"].apply(fix_bool)
-    df_disp["Czy_Zaliczka_Oplacona"] = df_disp["Czy_Zaliczka_Oplacona"].apply(fix_bool)
-
+    # Sortowanie
     c1, c2 = st.columns([1,3])
-    with c1: st.write("Sortuj:")
+    with c1:
+        st.write("Sortuj:")
     with c2:
         s = st.radio("S", ["Domyślnie", "💰 Najdroższe", "❌ Nieopłacone", "✅ Opłacone"], horizontal=True, label_visibility="collapsed", key="sort_org")
-    
-    if s == "💰 Najdroższe": df_disp = df_disp.sort_values("Koszt", ascending=False)
-    elif s == "❌ Nieopłacone": df_disp = df_disp.sort_values("Czy_Oplacone", ascending=True)
-    elif s == "✅ Opłacone": df_disp = df_disp.sort_values("Czy_Oplacone", ascending=False)
+    if s == "💰 Najdroższe":
+        df_disp = df_disp.sort_values("Koszt", ascending=False)
+    elif s == "❌ Nieopłacone":
+        df_disp = df_disp.sort_values("Czy_Oplacone", ascending=True)
+    elif s == "✅ Opłacone":
+        df_disp = df_disp.sort_values("Czy_Oplacone", ascending=False)
 
-    # --- NOWOŚĆ: DYNAMICZNY MAX DLA PASKA POSTĘPU ---
-    # Obliczamy sumę wszystkich kosztów w tabeli i ustawiamy ją jako 100% paska
     max_budget_value = int(df_disp["Koszt"].sum())
-    if max_budget_value == 0: max_budget_value = 100 # Zabezpieczenie przed 0
+    if max_budget_value == 0:
+        max_budget_value = 100
 
     edited_org = st.data_editor(
-        df_disp, num_rows="dynamic", use_container_width=True, hide_index=True, key="ed_org",
+        df_disp,
+        num_rows="dynamic",
+        use_container_width=True,
+        hide_index=True,
+        key="ed_org",
         column_config={
             "Kategoria": st.column_config.SelectboxColumn("Kategoria", options=all_cats, required=True),
             "Rola": st.column_config.TextColumn("Rola", required=True),
             "Informacje": st.column_config.TextColumn("Info", width="large"),
-            # Pasek postępu z dynamicznym max_value
-            "Koszt": st.column_config.ProgressColumn(
-                "Koszt", 
-                format="%d zł", 
-                min_value=0, 
-                max_value=max_budget_value 
-            ),
+            "Koszt": st.column_config.ProgressColumn("Koszt", format="%d zł", min_value=0, max_value=max_budget_value),
             "Czy_Oplacone": st.column_config.CheckboxColumn("✅ Opłacone?"),
             "Zaliczka": st.column_config.NumberColumn("Zaliczka", format="%d zł"),
             "Czy_Zaliczka_Oplacona": st.column_config.CheckboxColumn("✅ Zaliczka?")
@@ -444,26 +481,33 @@ with tab2:
             to_save["Czy_Zaliczka_Oplacona"] = to_save["Czy_Zaliczka_Oplacona"].apply(lambda x: "Tak" if x else "Nie")
         to_save = to_save.fillna("")
         aktualizuj_caly_arkusz(worksheet_obsluga, to_save)
+
+        # Zaktualizuj session_state (z powrotem bool)
+        to_save_bool = to_save.copy()
+        if not to_save_bool.empty:
+            to_save_bool["Czy_Oplacone"] = to_save_bool["Czy_Oplacone"].apply(lambda x: x == "Tak")
+            to_save_bool["Czy_Zaliczka_Oplacona"] = to_save_bool["Czy_Zaliczka_Oplacona"].apply(lambda x: x == "Tak")
+            to_save_bool["Koszt"] = pd.to_numeric(to_save_bool["Koszt"], errors='coerce').fillna(0.0)
+            to_save_bool["Zaliczka"] = pd.to_numeric(to_save_bool["Zaliczka"], errors='coerce').fillna(0.0)
+        st.session_state["df_obsluga"] = to_save_bool
         st.success("Zapisano!")
         st.rerun()
 
-    # --- PODSUMOWANIE FINANSOWE (WYKRESY I KAFELKI) ---
+    # --- PODSUMOWANIE FINANSOWE ---
     if not df_obsluga.empty:
         calc = df_obsluga.copy()
         calc["Koszt"] = pd.to_numeric(calc["Koszt"], errors='coerce').fillna(0.0)
         calc["Zaliczka"] = pd.to_numeric(calc["Zaliczka"], errors='coerce').fillna(0.0)
-        
         total = calc["Koszt"].sum()
         paid = 0.0
         for i, r in calc.iterrows():
-            if fix_bool(r["Czy_Oplacone"]): paid += r["Koszt"]
-            elif fix_bool(r["Czy_Zaliczka_Oplacona"]): paid += r["Zaliczka"]
-        
+            if r["Czy_Oplacone"]:
+                paid += r["Koszt"]
+            elif r["Czy_Zaliczka_Oplacona"]:
+                paid += r["Zaliczka"]
         to_pay = total - paid
-        
+
         st.write("---")
-        
-        # Definiujemy styl dla kafelka, żeby nie powtarzać kodu
         card_style = """
             background-color: #262730; 
             border: 1px solid #444; 
@@ -473,26 +517,19 @@ with tab2:
             text-align: left;
             margin-bottom: 10px;
         """
-        
         c1, c2, c3 = st.columns(3)
-        
-        # 1. Łącznie (ZIELONY)
         c1.markdown(f"""
             <div style="{card_style}">
                 <div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Łącznie</div>
                 <div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{total:,.0f} zł</div>
             </div>
         """, unsafe_allow_html=True)
-
-        # 2. Zapłacono (ZIELONY)
         c2.markdown(f"""
             <div style="{card_style}">
                 <div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Zapłacono</div>
                 <div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{paid:,.0f} zł</div>
             </div>
         """, unsafe_allow_html=True)
-
-        # 3. Do zapłaty (CZERWONY - #ff4b4b)
         c3.markdown(f"""
             <div style="{card_style}">
                 <div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Do zapłaty</div>
@@ -505,9 +542,7 @@ with tab2:
         st.subheader("📊 Struktura Wydatków")
         grp = calc.groupby("Kategoria")["Koszt"].sum().reset_index().sort_values("Koszt", ascending=False)
         grp = grp[grp["Koszt"] > 0]
-
         if not grp.empty:
-            # ... (TUTAJ DALEJ IDZIE TWÓJ KOD WYKRESÓW BEZ ZMIAN) ...
             st.write("**Ile wydajemy na co? (w zł)**")
             chart = alt.Chart(grp).mark_bar().encode(
                 x=alt.X('Koszt', title='Kwota (zł)'),
@@ -519,73 +554,72 @@ with tab2:
 
             st.write("---")
             st.write("**Udział procentowy**")
-            
             fig, ax = plt.subplots(figsize=(6, 6))
-            # Ustawienie przezroczystości dla wykresu kołowego
             fig.patch.set_alpha(0)
             ax.patch.set_alpha(0)
-            
             wedges, texts, autotexts = ax.pie(
-                grp["Koszt"], 
-                labels=grp["Kategoria"], 
-                autopct='%1.1f%%', 
-                startangle=90, 
-                textprops={'color':"white", 'fontsize': 10}
+                grp["Koszt"],
+                labels=grp["Kategoria"],
+                autopct='%1.1f%%',
+                startangle=90,
+                textprops={'color': "white", 'fontsize': 10}
             )
             plt.setp(autotexts, size=10, weight="bold", color="white")
             plt.setp(texts, size=10, color="white")
             ax.axis('equal')
-            
             c_center = st.columns([1,2,1])
             with c_center[1]:
                 st.pyplot(fig, use_container_width=True)
         else:
             st.info("Dodaj koszty, aby zobaczyć wykresy.")
-            
-# ==========================
-# ZAKŁADKA 3: LISTA ZADAŃ (TO-DO)
-# ==========================
 
+# ==========================
+# ZAKŁADKA 3: LISTA ZADAŃ
+# ==========================
 with tab3:
     st.header("✅ Co trzeba zrobić?")
+
+    if "df_zadania" not in st.session_state:
+        st.session_state["df_zadania"] = load_zadania()
+    df_zadania = st.session_state["df_zadania"]
+
     def dodaj_zadanie():
         tresc = st.session_state.get("todo_tresc", "")
-        termin = st.session_state.get("todo_data", date.today())       
-
+        termin = st.session_state.get("todo_data", date.today())
         if tresc:
-            termin_str = termin.strftime("%Y-%m-%d")           
-            zapisz_nowy_wiersz(worksheet_zadania, [tresc, termin_str, "Nie"])
+            termin_str = termin.strftime("%Y-%m-%d")
+            nowy_wiersz = [tresc, termin_str, False]  # bool
+            # Aktualizacja SESSION STATE
+            df = st.session_state["df_zadania"].copy()
+            nowy = dict(zip(KOLUMNY_ZADANIA, nowy_wiersz))
+            df = pd.concat([df, pd.DataFrame([nowy])], ignore_index=True)
+            st.session_state["df_zadania"] = df
+
+            # Zapis do ARKUSZA
+            w_arkusz = nowy_wiersz.copy()
+            w_arkusz[2] = "Tak" if w_arkusz[2] else "Nie"
+            zapisz_nowy_wiersz(worksheet_zadania, w_arkusz)
+
             st.toast(f"📅 Dodano zadanie: {tresc}")
             st.session_state["todo_tresc"] = ""
+            st.rerun()
         else:
             st.warning("Wpisz treść zadania!")
-    try:
-        df_zadania = pobierz_dane(worksheet_zadania)
-    except Exception as e:
-        st.error("Błąd danych. Sprawdź nagłówki w zakładce Zadania.")
-        st.stop()
-
-    if df_zadania.empty:
-        df_zadania = pd.DataFrame(columns=["Zadanie", "Termin", "Czy_Zrobione"])
 
     with st.expander("➕ Dodaj nowe zadanie", expanded=False):
         c1, c2 = st.columns([2, 1])
         with c1:
             st.text_input("Co trzeba zrobić?", key="todo_tresc", placeholder="np. Kupić winietki")
         with c2:
-            st.date_input("Termin wykonania", value=date.today(), key="todo_data")       
-
+            st.date_input("Termin wykonania", value=date.today(), key="todo_data")
         st.button("Dodaj do listy", on_click=dodaj_zadanie, key="btn_zadania")
 
     st.write("---")
     st.subheader(f"Lista Zadań ({len(df_zadania)})")
 
     df_todo_display = df_zadania.copy()
-    df_todo_display["Zadanie"] = df_todo_display["Zadanie"].astype(str).replace("nan", "")  
+    df_todo_display["Zadanie"] = df_todo_display["Zadanie"].astype(str).replace("nan", "")
     df_todo_display["Termin"] = pd.to_datetime(df_todo_display["Termin"], errors='coerce').dt.date
-    def napraw_booleana(x):
-        return str(x).lower().strip() in ["tak", "true", "1", "yes"]
-    df_todo_display["Czy_Zrobione"] = df_todo_display["Czy_Zrobione"].apply(napraw_booleana)
 
     col_sort1, col_sort2 = st.columns([1, 3])
     with col_sort1:
@@ -622,49 +656,38 @@ with tab3:
     )
 
     if st.button("💾 Zapisz zmiany", key="save_zadania"):
-        df_to_save_todo = edytowane_zadania.copy()      
-        df_to_save_todo = df_to_save_todo[df_to_save_todo["Zadanie"].str.strip() != ""]      
+        df_to_save_todo = edytowane_zadania.copy()
+        df_to_save_todo = df_to_save_todo[df_to_save_todo["Zadanie"].str.strip() != ""]
         df_to_save_todo["Termin"] = pd.to_datetime(df_to_save_todo["Termin"]).dt.strftime("%Y-%m-%d")
-        df_to_save_todo["Czy_Zrobione"] = df_to_save_todo["Czy_Zrobione"].apply(lambda x: "Tak" if x else "Nie")
-        df_to_save_todo = df_to_save_todo.fillna("")
-        aktualizuj_caly_arkusz(worksheet_zadania, df_to_save_todo)
+        df_arkusz = df_to_save_todo.copy()
+        df_arkusz["Czy_Zrobione"] = df_arkusz["Czy_Zrobione"].apply(lambda x: "Tak" if x else "Nie")
+        df_arkusz = df_arkusz.fillna("")
+        aktualizuj_caly_arkusz(worksheet_zadania, df_arkusz)
+
+        # Zaktualizuj session_state (bool)
+        df_to_save_todo["Czy_Zrobione"] = df_to_save_todo["Czy_Zrobione"].apply(lambda x: x == True)
+        st.session_state["df_zadania"] = df_to_save_todo
         st.success("Zaktualizowano listę zadań!")
-        st.rerun()       
+        st.rerun()
 
     if not df_zadania.empty:
         total = len(df_zadania)
-        zrobione = len(df_zadania[df_zadania["Czy_Zrobione"].apply(napraw_booleana)])
-        procent = int((zrobione / total) * 100) if total > 0 else 0       
-
+        zrobione = len(df_zadania[df_zadania["Czy_Zrobione"] == True])
+        procent = int((zrobione / total) * 100) if total > 0 else 0
         st.write("---")
         st.progress(procent, text=f"Postęp prac: {zrobione}/{total} zadań ({procent}%)")
         if procent == 100:
             st.balloons()
 
 # ==========================
-# ZAKŁADKA 4: STOŁY (NOWA)
+# ZAKŁADKA 4: STOŁY
 # ==========================
 with tab4:
     st.header("🍽️ Rozsadzanie Gości przy Stołach")
 
-    try:
-        df_stoly = pobierz_dane(worksheet_stoly)
-    except Exception as e:
-        st.error("Problem z zakładką 'Stoly'. Sprawdź czy istnieje.")
-        st.stop()
-
-    cols_stoly = ["Numer", "Ksztalt", "Liczba_Miejsc", "Goscie_Lista"]
-    if df_stoly.empty:
-        df_stoly = pd.DataFrame(columns=cols_stoly)
-    
-    if not df_stoly.empty:
-        df_stoly.columns = df_stoly.columns.str.strip()
-    for c in cols_stoly:
-        if c not in df_stoly.columns: df_stoly[c] = ""
-
-    if not df_stoly.empty:
-        df_stoly["Numer"] = df_stoly["Numer"].astype(str)
-        df_stoly["Liczba_Miejsc"] = pd.to_numeric(df_stoly["Liczba_Miejsc"], errors='coerce').fillna(0).astype(int)
+    if "df_stoly" not in st.session_state:
+        st.session_state["df_stoly"] = load_stoly()
+    df_stoly = st.session_state["df_stoly"]
 
     col_left, col_right = st.columns([1, 2])
 
@@ -675,16 +698,23 @@ with tab4:
             ksztalt = st.selectbox("Kształt", ["Okrągły", "Prostokątny"])
             miejsca = st.number_input("Liczba Miejsc", min_value=1, max_value=24, value=8)
             submitted = st.form_submit_button("Dodaj Stół")
-            
+
             if submitted and nr_stolu:
                 pusta_lista = ";".join(["" for _ in range(miejsca)])
-                zapisz_nowy_wiersz(worksheet_stoly, [nr_stolu, ksztalt, miejsca, pusta_lista])
+                nowy_wiersz = [nr_stolu, ksztalt, miejsca, pusta_lista]
+                # Aktualizacja SESSION STATE
+                df = st.session_state["df_stoly"].copy()
+                nowy = dict(zip(KOLUMNY_STOLY, nowy_wiersz))
+                df = pd.concat([df, pd.DataFrame([nowy])], ignore_index=True)
+                st.session_state["df_stoly"] = df
+
+                # Zapis do ARKUSZA
+                zapisz_nowy_wiersz(worksheet_stoly, nowy_wiersz)
                 st.toast(f"Dodano stół: {nr_stolu}")
                 st.rerun()
 
         st.write("---")
         st.subheader("📋 Lista Stołów")
-        
         if not df_stoly.empty:
             list_of_tables = df_stoly["Numer"].tolist()
             wybrany_stol_id = st.radio("Wybierz stół do edycji:", list_of_tables)
@@ -692,27 +722,25 @@ with tab4:
             wybrany_stol_id = None
             st.info("Brak stołów. Dodaj pierwszy!")
 
-# --- KOLUMNA PRAWA: EDYCJA I WIZUALIZACJA ---
     with col_right:
         if wybrany_stol_id:
             st.subheader(f"Edycja: {wybrany_stol_id}")
-            
-            # Pobieramy dane
+
+            # Pobieramy dane z session_state (nie z arkusza!)
             row = df_stoly[df_stoly["Numer"] == wybrany_stol_id].iloc[0]
             max_miejsc = int(row["Liczba_Miejsc"])
             ksztalt_stolu = row["Ksztalt"]
-            
+
             obecni_goscie_str = str(row["Goscie_Lista"])
             if ";" in obecni_goscie_str:
                 lista_gosci = obecni_goscie_str.split(";")
             else:
                 lista_gosci = [""] * max_miejsc
-            
+
             if len(lista_gosci) < max_miejsc:
                 lista_gosci += [""] * (max_miejsc - len(lista_gosci))
             lista_gosci = lista_gosci[:max_miejsc]
 
-            # --- FORMULARZ ---
             with st.expander("📝 Przypisz gości do miejsc", expanded=True):
                 nowa_lista_gosci = []
                 c_a, c_b = st.columns(2)
@@ -721,63 +749,56 @@ with tab4:
                     with col_to_use:
                         val = st.text_input(f"Miejsce {i+1}", value=lista_gosci[i], key=f"seat_{wybrany_stol_id}_{i}")
                         nowa_lista_gosci.append(val)
-                
+
                 if st.button("💾 Zapisz układ stołu"):
                     zapis_string = ";".join(nowa_lista_gosci)
+                    # 1. Zapis do ARKUSZA
                     idx = int(df_stoly[df_stoly["Numer"] == wybrany_stol_id].index[0] + 2)
                     worksheet_stoly.update_cell(idx, 4, zapis_string)
                     st.cache_data.clear()
+                    # 2. Aktualizacja SESSION STATE
+                    df = st.session_state["df_stoly"].copy()
+                    mask = df["Numer"] == wybrany_stol_id
+                    df.loc[mask, "Goscie_Lista"] = zapis_string
+                    st.session_state["df_stoly"] = df
                     st.success("Zapisano!")
                     st.rerun()
 
             # --- WIZUALIZACJA ---
             st.write("---")
             st.write(f"**Podgląd: {ksztalt_stolu} ({max_miejsc} os.)**")
-            
-            # --- ZMIANA TUTAJ: ZWIĘKSZONY ROZMIAR GRAFIKI (20x16 cali) ---
+
             fig, ax = plt.subplots(figsize=(20, 16))
             fig.patch.set_alpha(0)
             ax.patch.set_alpha(0)
             ax.set_aspect('equal')
             ax.axis('off')
 
-            # --- KOLORY ---
-            table_color = '#9D5B03'  # Brązowy
-            seat_color  = '#1B4D3E'  # Butelkowa zieleń
-            text_color  = 'white'
-            edge_color  = '#7B3F00'  # Ciemny obrys
+            table_color = '#9D5B03'
+            seat_color = '#1B4D3E'
+            text_color = 'white'
+            edge_color = '#7B3F00'
 
             if ksztalt_stolu == "Okrągły":
-                # Promienie
                 R_STOL = 1.1
                 R_KRZESLO_SRODEK = 1.4
                 R_TEKST = 1.65
 
-                # Stół
                 circle = plt.Circle((0, 0), R_STOL, color=table_color, ec=edge_color, lw=4)
                 ax.add_artist(circle)
-                # Większa czcionka nazwy stołu (24)
                 ax.text(0, 0, wybrany_stol_id, ha='center', va='center', fontsize=24, fontweight='bold', color='white')
 
                 for i in range(max_miejsc):
                     angle = 2 * np.pi * i / max_miejsc
-                    
-                    # Pozycja krzesła
                     cx = R_KRZESLO_SRODEK * np.cos(angle)
                     cy = R_KRZESLO_SRODEK * np.sin(angle)
-                    
-                    # Rysujemy krzesło
                     seat = plt.Circle((cx, cy), 0.21, color=seat_color, alpha=1.0)
                     ax.add_artist(seat)
-                    
+
                     guest_name = nowa_lista_gosci[i]
-                    
-                    # Pozycja tekstu
                     tx = R_TEKST * np.cos(angle)
                     ty = R_TEKST * np.sin(angle)
-                    
                     rot_deg = np.degrees(angle)
-                    
                     if 90 < rot_deg < 270:
                         rot_deg += 180
                         ha = 'right'
@@ -785,12 +806,10 @@ with tab4:
                         ha = 'left'
 
                     if guest_name:
-                        # Większa czcionka nazwisk (16)
-                        ax.text(tx, ty, guest_name, ha=ha, va='center', 
-                                rotation=rot_deg, rotation_mode='anchor', 
+                        ax.text(tx, ty, guest_name, ha=ha, va='center',
+                                rotation=rot_deg, rotation_mode='anchor',
                                 fontsize=16, color=text_color, fontweight='bold')
                     else:
-                        # Większa czcionka numerów (14)
                         ax.text(cx, cy, str(i+1), ha='center', va='center', fontsize=16, color='white')
 
                 limit = 2.2
@@ -798,56 +817,50 @@ with tab4:
                 ax.set_ylim(-limit, limit)
 
             elif ksztalt_stolu == "Prostokątny":
-                # Wymiary
                 W_STOL = 2.0
                 H_STOL = 4.0
-                
                 rect = plt.Rectangle((-W_STOL/2, -H_STOL/2), W_STOL, H_STOL, color=table_color, ec=edge_color, lw=4)
                 ax.add_artist(rect)
-                # Większa czcionka nazwy stołu (24)
                 ax.text(0, 0, wybrany_stol_id, ha='center', va='center', rotation=90, fontsize=24, fontweight='bold', color='white')
 
                 side_count = (max_miejsc + 1) // 2
-                
                 DIST_X = 1.3
-                
+
                 for i in range(max_miejsc):
                     guest_name = nowa_lista_gosci[i]
-                    
                     if i < side_count:
-                        # LEWA
                         x_pos = -DIST_X
                         y_pos = np.linspace(-H_STOL/2 + 0.4, H_STOL/2 - 0.4, side_count)[i]
                         ha = 'right'
                         text_offset_x = -0.25
                     else:
-                        # PRAWA
                         x_pos = DIST_X
                         y_pos = np.linspace(-H_STOL/2 + 0.4, H_STOL/2 - 0.4, max_miejsc - side_count)[i - side_count]
                         ha = 'left'
                         text_offset_x = 0.25
 
-                    # Krzesło
                     seat = plt.Circle((x_pos, y_pos), 0.21, color=seat_color, alpha=1.0)
                     ax.add_artist(seat)
 
                     if guest_name:
-                        # Większa czcionka nazwisk (16)
-                        ax.text(x_pos + text_offset_x, y_pos, guest_name, ha=ha, va='center', 
+                        ax.text(x_pos + text_offset_x, y_pos, guest_name, ha=ha, va='center',
                                 fontsize=16, color=text_color, fontweight='bold')
                     else:
-                        # Większa czcionka numerów (14)
                         ax.text(x_pos, y_pos, str(i+1), ha='center', va='center', fontsize=16, color='white')
 
                 ax.set_xlim(-2.8, 2.8)
                 ax.set_ylim(-2.8, 2.8)
 
             st.pyplot(fig, use_container_width=True)
-            
+
             st.write("---")
             if st.button("🗑️ Usuń ten stół"):
                 idx = int(df_stoly[df_stoly["Numer"] == wybrany_stol_id].index[0] + 2)
                 worksheet_stoly.delete_rows(idx)
+                # Aktualizacja SESSION STATE – usuwamy wiersz
+                df = st.session_state["df_stoly"].copy()
+                df = df[df["Numer"] != wybrany_stol_id]
+                st.session_state["df_stoly"] = df
                 st.cache_data.clear()
                 st.warning("Usunięto stół!")
                 st.rerun()
