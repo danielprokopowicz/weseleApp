@@ -63,9 +63,12 @@ def local_css():
 
         input[type=checkbox]:checked {
             accent-color: #4CAF50 !important;
-        }
-        .stCheckbox > label > div[role="checkbox"][aria-checked="true"] {
             background-color: #4CAF50 !important;
+            border-color: #4CAF50 !important;
+        }
+        
+        .stCheckbox input:checked {
+            accent-color: #4CAF50 !important;
         }
     </style>
     """, unsafe_allow_html=True)
