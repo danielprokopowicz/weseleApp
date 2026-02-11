@@ -18,14 +18,34 @@ import numpy as np
 def local_css():
     st.markdown("""
     <style>
-        /* Zmiana fontu dla całej strony */
+        /* 1. GŁÓWNE TŁO APLIKACJI */
+        .stApp {
+            background-color: #0E1117 !important; /* Bardzo ciemne tło (prawie czarne) */
+        }
+
+        /* 2. TŁO PASKA BOCZNEGO (jeśli używasz) */
+        [data-testid="stSidebar"] {
+            background-color: #161a24 !important;
+        }
+
+        /* 3. STYLIZACJA TEKSTU (Globalna) */
         html, body, [class*="css"] {
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            color: #FAFAFA !important; /* Biały tekst wszędzie */
+        }
+
+        /* 4. STYLIZACJA TABEL (Data Editor) */
+        /* To zmienia tło kontenera tabeli */
+        [data-testid="stDataEditor"], [data-testid="stDataFrame"] {
+            background-color: #1E1E1E !important; /* Ciemnoszare tło pod tabelą */
+            border: 1px solid #333;
+            border-radius: 10px;
+            padding: 10px;
         }
         
-        /* PRZESUNIĘCIE TYTUŁU WYŻEJ */
+        /* 5. PRZESUNIĘCIE TYTUŁU WYŻEJ */
         .block-container {
-            padding-top: 2rem !important; /* Zmniejszony margines górny */
+            padding-top: 2rem !important;
             padding-bottom: 2rem !important;
         }
         
@@ -34,52 +54,48 @@ def local_css():
         footer {visibility: hidden;}
         header {visibility: hidden;}
         
-        /* Stylizacja nagłówków */
+        /* 6. NAGŁÓWKI */
         h1 {
-            color: #8B4513; /* Brązowy */
+            color: #8B4513 !important; /* Brązowy */
             text-align: center;
             font-weight: 1000;
-            margin-bottom: 0px; /* Mniejszy odstęp pod tytułem */
+            margin-bottom: 0px;
         }
         h2 {
-            color: #1B4D3E; /* Butelkowa zieleń */
-            border-bottom: 2px solid #FFFFFF;
+            color: #1B4D3E !important; /* Butelkowa zieleń */
+            border-bottom: 2px solid #333; /* Ciemna linia oddzielająca */
             padding-bottom: 10px;
         }
         
-        /* --- STYLIZACJA KAFELKÓW (METRYK) NA CZARNO --- */
+        /* 7. KAFELKI (METRYKI) - CZARNE */
         [data-testid="stMetric"] {
-            background-color: #000000 !important; /* Czarne tło */
-            border: 1px solid #333; /* Ciemnoszara ramka */
+            background-color: #000000 !important;
+            border: 1px solid #333;
             padding: 15px;
             border-radius: 10px;
-            box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.7);
         }
         [data-testid="stMetricLabel"] {
-            color: #F5F5DC !important; /* Beżowy napis nagłówka kafelka */
+            color: #F5F5DC !important; /* Beżowy */
         }
         [data-testid="stMetricValue"] {
-            color: #4CAF50 !important; /* Zielona wartość liczbowa */
+            color: #4CAF50 !important; /* Zielony */
         }
         
-        /* Powiększenie zakładek (Tabs) */
+        /* 8. ZAKŁADKI (TABS) */
         button[data-baseweb="tab"] {
             font-size: 18px !important;
             font-weight: 600 !important;
+            background-color: #1E1E1E !important; /* Tło nieaktywnej zakładki */
+            color: #AAAAAA !important; /* Tekst nieaktywnej zakładki */
+            border-radius: 5px 5px 0 0;
+            margin-right: 2px;
         }
         
-        /* Kolor aktywnej zakładki */
+        /* Aktywna zakładka */
         button[data-baseweb="tab"][aria-selected="true"] {
-            background-color: #787a79 !important;
+            background-color: #1B4D3E !important; /* Butelkowa zieleń */
             color: white !important;
-        }
-
-        /* Styl checkboxów na zielono */
-        input[type=checkbox]:checked {
-            accent-color: #4CAF50 !important;
-        }
-        .stCheckbox > label > div[role="checkbox"][aria-checked="true"] {
-            background-color: #4CAF50 !important;
         }
     </style>
     """, unsafe_allow_html=True)
