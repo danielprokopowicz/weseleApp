@@ -6,7 +6,7 @@ from datetime import date
 import matplotlib.pyplot as plt
 import altair as alt
 import numpy as np
-from gspread.exceptions import WorksheetNotFound  # <-- obsługa braku zakładek
+from gspread.exceptions import WorksheetNotFound
 
 # --- STYLIZACJA CSS ---
 def local_css():
@@ -74,47 +74,58 @@ KOLUMNY_OBSLUGA  = ["Kategoria", "Rola", "Informacje", "Koszt", "Czy_Oplacone", 
 KOLUMNY_ZADANIA  = ["Zadanie", "Termin", "Czy_Zrobione"]
 KOLUMNY_STOLY    = ["Numer", "Ksztalt", "Liczba_Miejsc", "Goscie_Lista"]
 
-# --- POŁĄCZENIE Z GOOGLE SHEETS ---
+# --- POŁĄCZENIE Z GOOGLE SHEETS I CACHE'OWANIE WSZYSTKICH ARKUSZY ---
 @st.cache_resource
-def polacz_z_arkuszem():
+def pobierz_arkusze():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds_dict = dict(st.secrets["gcp_service_account"])
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
 
     try:
-        sheet = client.open("Wesele_Baza")
-        return sheet
-    except Exception as e:
-        st.error(f"⚠️ Nie znaleziono arkusza 'Wesele_Baza'. Upewnij się, że nazwa jest poprawna i udostępniłeś go mailowi robota.")
+        sh = client.open("Wesele_Baza")
+    except Exception:
+        st.error("⚠️ Nie znaleziono arkusza 'Wesele_Baza'. Upewnij się, że nazwa jest poprawna i udostępniłeś go mailowi robota.")
         st.stop()
 
-sh = polacz_z_arkuszem()
+    arkusze = {}
 
-# --- BEZPIECZNE POBIERANIE ZAKŁADEK Z OBSŁUGĄ BŁĘDÓW ---
-try:
-    worksheet_goscie = sh.worksheet("Goscie")
-except WorksheetNotFound:
-    st.error("⚠️ Brak zakładki 'Goscie' w arkuszu Google. Utwórz ją z nagłówkami: Imie_Nazwisko, Imie_Osoby_Tow, RSVP, Zaproszenie_Wyslane.")
-    st.stop()
+    # Goscie – wymagany
+    try:
+        arkusze["Goscie"] = sh.worksheet("Goscie")
+    except WorksheetNotFound:
+        st.error("⚠️ Brak zakładki 'Goscie' w arkuszu Google. Utwórz ją z nagłówkami: Imie_Nazwisko, Imie_Osoby_Tow, RSVP, Zaproszenie_Wyslane.")
+        st.stop()
 
-try:
-    worksheet_obsluga = sh.worksheet("Obsluga")
-except WorksheetNotFound:
-    st.error("⚠️ Brak zakładki 'Obsluga' w arkuszu Google. Utwórz ją z nagłówkami: Kategoria, Rola, Informacje, Koszt, Czy_Oplacone, Zaliczka, Czy_Zaliczka_Oplacona.")
-    st.stop()
+    # Obsluga – wymagany
+    try:
+        arkusze["Obsluga"] = sh.worksheet("Obsluga")
+    except WorksheetNotFound:
+        st.error("⚠️ Brak zakładki 'Obsluga' w arkuszu Google. Utwórz ją z nagłówkami: Kategoria, Rola, Informacje, Koszt, Czy_Oplacone, Zaliczka, Czy_Zaliczka_Oplacona.")
+        st.stop()
 
-try:
-    worksheet_zadania = sh.worksheet("Zadania")
-except WorksheetNotFound:
-    worksheet_zadania = None
-    st.warning("⚠️ Brakuje zakładki 'Zadania' w Arkuszu Google! Stwórz ją, aby lista zadań działała.")
+    # Zadania – opcjonalny
+    try:
+        arkusze["Zadania"] = sh.worksheet("Zadania")
+    except WorksheetNotFound:
+        arkusze["Zadania"] = None
+        st.warning("⚠️ Brakuje zakładki 'Zadania' w Arkuszu Google! Stwórz ją, aby lista zadań działała.")
 
-try:
-    worksheet_stoly = sh.worksheet("Stoly")
-except WorksheetNotFound:
-    worksheet_stoly = None
-    st.warning("⚠️ Brakuje zakładki 'Stoly' w Arkuszu Google! Utwórz ją z nagłówkami: Numer, Ksztalt, Liczba_Miejsc, Goscie_Lista")
+    # Stoly – opcjonalny
+    try:
+        arkusze["Stoly"] = sh.worksheet("Stoly")
+    except WorksheetNotFound:
+        arkusze["Stoly"] = None
+        st.warning("⚠️ Brakuje zakładki 'Stoly' w Arkuszu Google! Utwórz ją z nagłówkami: Numer, Ksztalt, Liczba_Miejsc, Goscie_Lista")
+
+    return arkusze
+
+# Pobieramy arkusze – TYLKO RAZ dzięki cache_resource
+arkusze = pobierz_arkusze()
+worksheet_goscie  = arkusze["Goscie"]
+worksheet_obsluga = arkusze["Obsluga"]
+worksheet_zadania = arkusze["Zadania"]
+worksheet_stoly   = arkusze["Stoly"]
 
 # --- FUNKCJE POMOCNICZE (odczyt / zapis) ---
 def pobierz_dane(_worksheet):
