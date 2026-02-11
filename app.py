@@ -56,6 +56,8 @@ def local_css():
             padding: 15px;
             border-radius: 10px;
             box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+            text-align: left;
+            margin-bottom: 10px;
         }
         
         /* 2. Tabele - Ramka w tym samym kolorze co tło kafelków (opcjonalnie tło też) */
