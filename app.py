@@ -621,7 +621,7 @@ with tab2:
         c1, c2, c3 = st.columns(3)
         c1.metric("Łącznie", f"{total:,.0f} zł")
         c2.metric("Zapłacono", f"{paid:,.0f} zł")
-        c3.metric("Do zapłaty", f"{total-paid:,.0f} zł", delta=-(total-paid), delta_color="inverse")
+        c3.metric("Do zapłaty", f"{total-paid:,.0f} zł", delta=-(total-paid), delta_color="red")
 
         st.write("---")
         st.subheader("📊 Struktura Wydatków")
