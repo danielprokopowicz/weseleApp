@@ -74,9 +74,8 @@ def local_css():
             color: #4CAF50 !important; /* Zielony */
         }
 
-        /* --- PRECYZYJNA ZMIANA NA CZERWONY --- */
         div[data-baseweb="tab-panel"]:nth-of-type(2) div[data-testid="column"]:nth-of-type(3) [data-testid="stMetricValue"] {
-            color: #ff4b4b !important;
+            color: #ff4b4b !important; /* Czerwony */
         }
         
         /* Powiększenie zakładek (Tabs) */
