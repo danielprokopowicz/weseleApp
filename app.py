@@ -47,10 +47,10 @@ def local_css():
             padding-bottom: 10px;
         }
         
-        /* --- STYLIZACJA KAFELKÓW (METRYK) NA CZARNO --- */
+        /* --- STYLIZACJA KAFELKÓW (METRYK) --- */
         [data-testid="stMetric"] {
-            background-color: #333333 !important; /* Czarne tło */
-            border: 1px solid #333; /* Ciemnoszara ramka */
+            background-color: #333333 !important; 
+            border: 1px solid #555; 
             padding: 15px;
             border-radius: 10px;
             box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
