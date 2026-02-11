@@ -14,7 +14,54 @@ import altair as alt
 
 import numpy as np
 
+# --- STYLIZACJA CSS (UI) ---
+def local_css():
+    st.markdown("""
+    <style>
+        /* Ogólna czcionka */
+        html, body, [class*="css"] {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        }
+        
+        /* Ukrycie stopki i menu hamburgera (opcjonalne) */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        
+        /* Stylizacja nagłówków - Brązowy */
+        h1, h2, h3 {
+            color: #8B4513 !important;
+        }
+        
+        /* Stylizacja metryk (Karty Budżetu) */
+        [data-testid="stMetric"] {
+            background-color: #2b2b2b;
+            border: 1px solid #4a4a4a;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+        }
+        [data-testid="stMetricLabel"] {
+            color: #F5F5DC !important; /* Beżowy */
+        }
+        [data-testid="stMetricValue"] {
+            color: #4CAF50 !important; /* Zielony */
+        }
 
+        /* Stylizacja zakładek */
+        button[data-baseweb="tab"] {
+            font-size: 18px !important;
+            font-weight: 600 !important;
+        }
+        
+        /* Aktywna zakładka */
+        button[data-baseweb="tab"][aria-selected="true"] {
+            background-color: #1B4D3E !important; /* Butelkowa zieleń */
+            color: white !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+local_css()
 
 # --- STAŁE ---
 
@@ -405,483 +452,173 @@ with tab1:
 
 
 # ==========================
-
-# ZAKŁADKA 2: ORGANIZACJA I BUDŻET
-
+# ZAKŁADKA 2: ORGANIZACJA
 # ==========================
-
 with tab2:
-
     st.header("🎧 Organizacja i Budżet")
 
-
-
-    # 1. Pobranie danych
-
     try:
-
         df_obsluga = pobierz_dane(worksheet_obsluga)
-
-    except Exception as e:
-
-        st.error("Błąd danych. Sprawdź nagłówki w zakładce Obsluga.")
-
+    except:
+        st.error("Błąd danych.")
         st.stop()
 
-
-
-    # 2. Definicja kolumn i struktury
-
-    wymagane_kolumny_org = ["Kategoria", "Rola", "Informacje", "Koszt", "Czy_Oplacone", "Zaliczka", "Czy_Zaliczka_Oplacona"]
-
+    org_cols = ["Kategoria", "Rola", "Informacje", "Koszt", "Czy_Oplacone", "Zaliczka", "Czy_Zaliczka_Oplacona"]
+    if df_obsluga.empty: df_obsluga = pd.DataFrame(columns=org_cols)
     
-
-    if df_obsluga.empty:
-
-        df_obsluga = pd.DataFrame(columns=wymagane_kolumny_org)
-
-
-
-    # Zabezpieczenie nazw kolumn
-
     df_obsluga.columns = df_obsluga.columns.str.strip()
+    for c in org_cols:
+        if c not in df_obsluga.columns:
+            df_obsluga[c] = ""
+            if c == "Kategoria": df_obsluga[c] = "Inne"
 
-    for col in wymagane_kolumny_org:
-
-        if col not in df_obsluga.columns:
-
-            df_obsluga[col] = ""
-
-            if col == "Kategoria": df_obsluga[col] = "Inne"
-
-
-
-    # --- LOGIKA DYNAMICZNYCH KATEGORII ---
-
-    baza_kategorii = [
-
-        "Inne"
-
-    ]
-
-    
-
+    base_cats = ["Sala i Jedzenie", "Muzyka", "Foto/Video", "Stroje", "Dekoracje", "Transport", "Inne"]
     if not df_obsluga.empty:
-
-        obecne_w_arkuszu = df_obsluga["Kategoria"].unique().tolist()
-
-        wszystkie_kategorie = sorted(list(set(baza_kategorii + [x for x in obecne_w_arkuszu if str(x).strip() != ""])))
-
-    else:
-
-        wszystkie_kategorie = sorted(baza_kategorii)
-
-
-
-    opcje_do_wyboru = wszystkie_kategorie + ["➕ Stwórz nową kategorię..."]
-
-
-
-    # --- FUNKCJA DODAWANIA ---
+        curr = df_obsluga["Kategoria"].unique().tolist()
+        all_cats = sorted(list(set(base_cats + [x for x in curr if str(x).strip() != ""])))
+    else: all_cats = sorted(base_cats)
+    select_opts = all_cats + ["➕ Stwórz nową..."]
 
     def dodaj_usluge():
+        sel = st.session_state.get("org_k_sel")
+        inp = st.session_state.get("org_k_inp", "")
+        fin_cat = inp.strip() if sel == "➕ Stwórz nową..." else sel
+        r = st.session_state.get("org_rola", "")
+        i = st.session_state.get("org_info", "")
+        k = st.session_state.get("org_koszt", 0.0)
+        op = st.session_state.get("org_op", False)
+        z = st.session_state.get("org_zal", 0.0)
+        z_op = st.session_state.get("org_z_op", False)
 
-        wybor = st.session_state.get("org_kategoria_select")
-
-        nowa_kat = st.session_state.get("org_kategoria_input", "")
-
-        
-
-        if wybor == "➕ Stwórz nową kategorię...":
-
-            kategoria_finalna = nowa_kat.strip()
-
-        else:
-
-            kategoria_finalna = wybor
-
-
-
-        rola = st.session_state.get("org_rola", "")
-
-        info = st.session_state.get("org_info", "")
-
-        koszt = st.session_state.get("org_koszt", 0.0)
-
-        czy_oplacone = st.session_state.get("org_oplacone", False)
-
-        zaliczka_kwota = st.session_state.get("org_zaliczka_kwota", 0.0)
-
-        czy_zaliczka_oplacona = st.session_state.get("org_zaliczka_oplacona", False)
-
-
-
-        if rola and kategoria_finalna:
-
-            txt_oplacone = "Tak" if czy_oplacone else "Nie"
-
-            txt_zaliczka_opl = "Tak" if czy_zaliczka_oplacona else "Nie"
-
-
-
-            zapisz_nowy_wiersz(worksheet_obsluga, [kategoria_finalna, rola, info, koszt, txt_oplacone, zaliczka_kwota, txt_zaliczka_opl])
-
-            st.toast(f"💰 Dodano: {rola} ({kategoria_finalna})")
-
-
-
+        if r and fin_cat:
+            zapisz_nowy_wiersz(worksheet_obsluga, [fin_cat, r, i, k, "Tak" if op else "Nie", z, "Tak" if z_op else "Nie"])
+            st.toast(f"💰 Dodano: {r}")
             st.session_state["org_rola"] = ""
-
             st.session_state["org_info"] = ""
-
             st.session_state["org_koszt"] = 0.0
+            st.session_state["org_op"] = False
+            st.session_state["org_zal"] = 0.0
+            st.session_state["org_z_op"] = False
+            st.session_state["org_k_inp"] = ""
+        else: st.warning("Wpisz Rolę i Kategorię")
 
-            st.session_state["org_oplacone"] = False
-
-            st.session_state["org_zaliczka_kwota"] = 0.0
-
-            st.session_state["org_zaliczka_oplacona"] = False
-
-            st.session_state["org_kategoria_input"] = "" 
-
-        else:
-
-            st.warning("Musisz wpisać nazwę Roli i wybrać Kategorię!")
-
-
-
-    # --- 1. Formularz Dodawania ---
-
-    with st.expander("➕ Dodaj nową usługę / koszt", expanded=False):
-
-        c_select, c_input = st.columns(2)
-
-        with c_select:
-
-            wybrana_opcja = st.selectbox("Kategoria", options=opcje_do_wyboru, key="org_kategoria_select")
-
-        with c_input:
-
-            if wybrana_opcja == "➕ Stwórz nową kategorię...":
-
-                st.text_input("Wpisz nazwę nowej kategorii:", key="org_kategoria_input", placeholder="np. Poprawiny")
-
-        
-
-        st.text_input("Rola (np. DJ, Sala)", key="org_rola")
-
-            
-
+    with st.expander("➕ Dodaj koszt", expanded=False):
         c1, c2 = st.columns(2)
-
-        with c1:
-
-            st.number_input("Całkowity Koszt (zł)", min_value=0.0, step=100.0, key="org_koszt")
-
-            st.checkbox("Czy całość już opłacona?", key="org_oplacone")
-
+        with c1: 
+            sel = st.selectbox("Kategoria", select_opts, key="org_k_sel")
         with c2:
-
-            st.text_input("Informacje dodatkowe (Kontakt)", key="org_info")
-
-            st.number_input("Wymagana Zaliczka (0 jeśli brak)", min_value=0.0, step=100.0, key="org_zaliczka_kwota")
-
-            st.checkbox("Czy zaliczka opłacona?", key="org_zaliczka_oplacona")
-
+            if sel == "➕ Stwórz nową...": st.text_input("Nowa nazwa:", key="org_k_inp")
         
-
-        st.button("Dodaj do budżetu", on_click=dodaj_usluge, key="btn_obsluga")
-
-
-
-    # --- 2. FILTROWANIE I TABELA ---
+        st.text_input("Rola", key="org_rola")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.number_input("Koszt", step=100.0, key="org_koszt")
+            st.checkbox("Opłacone całe?", key="org_op")
+        with c2:
+            st.text_input("Info", key="org_info")
+            st.number_input("Zaliczka", step=100.0, key="org_zal")
+            st.checkbox("Zaliczka opłacona?", key="org_z_op")
+        st.button("Dodaj", on_click=dodaj_usluge, key="btn_org")
 
     st.write("---")
-
-    st.subheader(f"💸 Lista Wydatków ({len(df_obsluga)} pozycji)")
-
+    st.subheader(f"💸 Wydatki ({len(df_obsluga)})")
     
+    fil = st.multiselect("🔍 Filtruj:", all_cats)
+    df_disp = df_obsluga.copy()
+    if fil: df_disp = df_disp[df_disp["Kategoria"].isin(fil)]
 
-    lista_do_filtra = wszystkie_kategorie
+    df_disp["Koszt"] = pd.to_numeric(df_disp["Koszt"], errors='coerce').fillna(0.0)
+    df_disp["Zaliczka"] = pd.to_numeric(df_disp["Zaliczka"], errors='coerce').fillna(0.0)
+    def fix_bool(x): return str(x).lower().strip() in ["tak", "true", "1", "yes"]
+    df_disp["Czy_Oplacone"] = df_disp["Czy_Oplacone"].apply(fix_bool)
+    df_disp["Czy_Zaliczka_Oplacona"] = df_disp["Czy_Zaliczka_Oplacona"].apply(fix_bool)
 
-    wybrane_kategorie = st.multiselect("🔍 Filtruj po kategorii:", options=lista_do_filtra, default=[])
+    c1, c2 = st.columns([1,3])
+    with c1: st.write("Sortuj:")
+    with c2:
+        s = st.radio("S", ["Domyślnie", "💰 Najdroższe", "❌ Nieopłacone", "✅ Opłacone"], horizontal=True, label_visibility="collapsed", key="sort_org")
+    
+    if s == "💰 Najdroższe": df_disp = df_disp.sort_values("Koszt", ascending=False)
+    elif s == "❌ Nieopłacone": df_disp = df_disp.sort_values("Czy_Oplacone", ascending=True)
+    elif s == "✅ Opłacone": df_disp = df_disp.sort_values("Czy_Oplacone", ascending=False)
 
-
-
-    df_org_display = df_obsluga.copy()
-
-
-
-    if wybrane_kategorie:
-
-        df_org_display = df_org_display[df_org_display["Kategoria"].isin(wybrane_kategorie)]
-
-
-
-    df_org_display["Koszt"] = pd.to_numeric(df_org_display["Koszt"], errors='coerce').fillna(0.0)
-
-    df_org_display["Zaliczka"] = pd.to_numeric(df_org_display["Zaliczka"], errors='coerce').fillna(0.0)
-
-    df_org_display["Rola"] = df_org_display["Rola"].astype(str).replace("nan", "")
-
-    df_org_display["Kategoria"] = df_org_display["Kategoria"].astype(str).replace("nan", "")
-
-    df_org_display["Informacje"] = df_org_display["Informacje"].astype(str).replace("nan", "")
-
-
-
-    def napraw_booleana(x):
-
-        return str(x).lower().strip() in ["tak", "true", "1", "yes"]
-
-
-
-    df_org_display["Czy_Oplacone"] = df_org_display["Czy_Oplacone"].apply(napraw_booleana)
-
-    df_org_display["Czy_Zaliczka_Oplacona"] = df_org_display["Czy_Zaliczka_Oplacona"].apply(napraw_booleana)
-
-
-
-    col_sort1, col_sort2 = st.columns([1, 3])
-
-    with col_sort1: st.write("**Sortuj wg:**")
-
-    with col_sort2:
-
-        tryb_finanse = st.radio("Sortowanie Finansów",
-
-            options=["Domyślnie", "💰 Najdroższe", "❌ Nieopłacone", "✅ Opłacone", "❌ Brak Zaliczki", "✅ Zaliczka Opłacona"],
-
-            label_visibility="collapsed", horizontal=True, key="sort_finanse")
-
-
-
-    if tryb_finanse == "💰 Najdroższe": df_org_display = df_org_display.sort_values(by="Koszt", ascending=False)
-
-    elif tryb_finanse == "❌ Nieopłacone": df_org_display = df_org_display.sort_values(by="Czy_Oplacone", ascending=True)
-
-    elif tryb_finanse == "✅ Opłacone": df_org_display = df_org_display.sort_values(by="Czy_Oplacone", ascending=False)
-
-    elif tryb_finanse == "❌ Brak Zaliczki": df_org_display = df_org_display.sort_values(by="Czy_Zaliczka_Oplacona", ascending=True)
-
-    elif tryb_finanse == "✅ Zaliczka Opłacona": df_org_display = df_org_display.sort_values(by="Czy_Zaliczka_Oplacona", ascending=False)
-
-
-
-    edytowane_obsluga = st.data_editor(
-
-        df_org_display,
-
-        num_rows="dynamic",
-
+    edited_org = st.data_editor(
+        df_disp, num_rows="dynamic", use_container_width=True, hide_index=True, key="ed_org",
         column_config={
-
-            "Kategoria": st.column_config.SelectboxColumn("Kategoria", options=wszystkie_kategorie, required=True, width="medium"),
-
-            "Rola": st.column_config.TextColumn("Rola / Usługa", required=True),
-
-            "Informacje": st.column_config.TextColumn("Kontakt / Info", width="medium"),
-
-            "Koszt": st.column_config.NumberColumn("Koszt (Całość)", format="%d zł", step=100),
-
+            "Kategoria": st.column_config.SelectboxColumn("Kategoria", options=all_cats, required=True),
+            "Rola": st.column_config.TextColumn("Rola", required=True),
+            "Koszt": st.column_config.ProgressColumn("Koszt", format="%d zł", min_value=0, max_value=15000), # PASEK POSTĘPU
             "Czy_Oplacone": st.column_config.CheckboxColumn("✅ Opłacone?"),
-
-            "Zaliczka": st.column_config.NumberColumn("Zaliczka", format="%d zł", step=100),
-
+            "Zaliczka": st.column_config.NumberColumn("Zaliczka", format="%d zł"),
             "Czy_Zaliczka_Oplacona": st.column_config.CheckboxColumn("✅ Zaliczka?")
-
-        },
-
-        use_container_width=True,
-
-        hide_index=True,
-
-        key="editor_obsluga"
-
+        }
     )
 
-
-
-    if st.button("💾 Zapisz zmiany", key="save_obsluga"):
-
-        df_to_save_org = edytowane_obsluga.copy()
-
-        if not df_to_save_org.empty:
-
-            df_to_save_org = df_to_save_org[df_to_save_org["Rola"].str.strip() != ""]
-
-            df_to_save_org["Czy_Oplacone"] = df_to_save_org["Czy_Oplacone"].apply(lambda x: "Tak" if x else "Nie")
-
-            df_to_save_org["Czy_Zaliczka_Oplacona"] = df_to_save_org["Czy_Zaliczka_Oplacona"].apply(lambda x: "Tak" if x else "Nie")
-
-        
-
-        df_to_save_org = df_to_save_org.fillna("")
-
-        aktualizuj_caly_arkusz(worksheet_obsluga, df_to_save_org)
-
-        st.success("Zapisano budżet!")
-
+    if st.button("💾 Zapisz (Budżet)", key="sav_org"):
+        to_save = edited_org.copy()
+        if not to_save.empty:
+            to_save = to_save[to_save["Rola"].str.strip() != ""]
+            to_save["Czy_Oplacone"] = to_save["Czy_Oplacone"].apply(lambda x: "Tak" if x else "Nie")
+            to_save["Czy_Zaliczka_Oplacona"] = to_save["Czy_Zaliczka_Oplacona"].apply(lambda x: "Tak" if x else "Nie")
+        to_save = to_save.fillna("")
+        aktualizuj_caly_arkusz(worksheet_obsluga, to_save)
+        st.success("Zapisano!")
         st.rerun()
 
-
-
-        # --- WYKRESY ---
-
-if not df_obsluga.empty:
-
-        df_calc = df_obsluga.copy()
-
-        df_calc["Koszt"] = pd.to_numeric(df_calc["Koszt"], errors='coerce').fillna(0.0)
-
-        df_calc["Zaliczka"] = pd.to_numeric(df_calc["Zaliczka"], errors='coerce').fillna(0.0)
-
-        def fix_bool(x): return str(x).lower().strip() in ["tak", "true", "1", "yes"]
-
-        df_calc["Czy_Oplacone_Bool"] = df_calc["Czy_Oplacone"].apply(fix_bool)
-
-        df_calc["Czy_Zaliczka_Bool"] = df_calc["Czy_Zaliczka_Oplacona"].apply(fix_bool)
-
+    # --- TUTAJ BYŁ BŁĄD (NAPRAWIONE WCIĘCIE) ---
+    if not df_obsluga.empty:
+        calc = df_obsluga.copy()
+        calc["Koszt"] = pd.to_numeric(calc["Koszt"], errors='coerce').fillna(0.0)
+        calc["Zaliczka"] = pd.to_numeric(calc["Zaliczka"], errors='coerce').fillna(0.0)
+        total = calc["Koszt"].sum()
+        paid = 0.0
+        for i, r in calc.iterrows():
+            if fix_bool(r["Czy_Oplacone"]): paid += r["Koszt"]
+            elif fix_bool(r["Czy_Zaliczka_Oplacona"]): paid += r["Zaliczka"]
         
+        st.write("---")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Łącznie", f"{total:,.0f} zł")
+        c2.metric("Zapłacono", f"{paid:,.0f} zł")
+        c3.metric("Do zapłaty", f"{total-paid:,.0f} zł", delta=-(total-paid), delta_color="inverse")
 
         st.write("---")
-
-        
-
-        total_koszt = df_calc["Koszt"].sum()
-
-        wydano = 0.0
-
-        for index, row in df_calc.iterrows():
-
-            if row["Czy_Oplacone_Bool"]:
-
-                wydano += row["Koszt"]
-
-            elif row["Czy_Zaliczka_Bool"]:
-
-                wydano += row["Zaliczka"]
-
-        
-
-        pozostalo = total_koszt - wydano
-
-        
-
-        k1, k2, k3 = st.columns(3)
-
-        k1.metric("Łączny budżet (Całość)", f"{total_koszt:,.0f} zł".replace(",", " "))
-
-        k2.metric("Już zapłacono", f"{wydano:,.0f} zł".replace(",", " "))
-
-        k3.metric("Pozostało do zapłaty", f"{pozostalo:,.0f} zł".replace(",", " "), delta=f"-{pozostalo} zł", delta_color="inverse")
-
-
-
-        # --- WYKRESY (ALTAIR + MATPLOTLIB) ---
-
-        st.write("---")
-
         st.subheader("📊 Struktura Wydatków")
+        grp = calc.groupby("Kategoria")["Koszt"].sum().reset_index().sort_values("Koszt", ascending=False)
+        grp = grp[grp["Koszt"] > 0]
 
-
-
-        koszty_wg_kategorii = df_calc.groupby("Kategoria")["Koszt"].sum().reset_index()
-
-        koszty_wg_kategorii = koszty_wg_kategorii.sort_values(by="Koszt", ascending=False)
-
-        koszty_wg_kategorii = koszty_wg_kategorii[koszty_wg_kategorii["Koszt"] > 0]
-
-
-
-        if not koszty_wg_kategorii.empty:
-
-            # 1. Wykres Słupkowy (Altair)
-
+        if not grp.empty:
             st.write("**Ile wydajemy na co? (w zł)**")
-
-            
-
-            chart_bar = alt.Chart(koszty_wg_kategorii).mark_bar().encode(
-
+            chart = alt.Chart(grp).mark_bar().encode(
                 x=alt.X('Koszt', title='Kwota (zł)'),
-
                 y=alt.Y('Kategoria', sort='-x', title='Kategoria'),
-
                 color=alt.Color('Kategoria', legend=None),
-
                 tooltip=['Kategoria', alt.Tooltip('Koszt', format=',.0f')]
-
-            ).properties(
-
-                height=300
-
-            ).interactive()
-
-            
-
-            st.altair_chart(chart_bar, use_container_width=True)
-
-
+            ).properties(height=300).interactive()
+            st.altair_chart(chart, use_container_width=True)
 
             st.write("---")
-
-
-
-            # 2. Wykres Kołowy (Matplotlib)
-
             st.write("**Udział procentowy**")
-
             
-
             fig, ax = plt.subplots(figsize=(6, 6))
-
-            
-
             wedges, texts, autotexts = ax.pie(
-
-                koszty_wg_kategorii["Koszt"], 
-
-                labels=koszty_wg_kategorii["Kategoria"], 
-
+                grp["Koszt"], 
+                labels=grp["Kategoria"], 
                 autopct='%1.1f%%', 
-
-                startangle=90,
-
+                startangle=90, 
                 textprops={'color':"white", 'fontsize': 10}
-
             )
-
-            
-
             plt.setp(autotexts, size=10, weight="bold", color="white")
-
             plt.setp(texts, size=10, color="white")
-
-
-
-            ax.axis('equal')
-
-            
-
             fig.patch.set_alpha(0)
-
             ax.patch.set_alpha(0)
-
+            ax.axis('equal')
             
-
-            col_centered_pie = st.columns([1, 2, 1])
-
-            with col_centered_pie[1]:
-
-                 st.pyplot(fig, use_container_width=True)
-
-
-
+            c_center = st.columns([1,2,1])
+            with c_center[1]:
+                st.pyplot(fig, use_container_width=True)
         else:
-
             st.info("Dodaj koszty, aby zobaczyć wykresy.")
-
             
 
 # ==========================
