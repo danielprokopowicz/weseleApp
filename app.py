@@ -20,7 +20,7 @@ def local_css():
     <style>
         /* 1. GŁÓWNE TŁO APLIKACJI (Czarne/Ciemne) */
         .stApp {
-            background-color: #161717 !important;
+            background-color: #121212 !important;
         }
 
         /* 2. TEKST I CZCIONKA (Kolor biały jest konieczny na ciemnym tle) */
@@ -31,7 +31,7 @@ def local_css():
 
         /* 3. TŁO DLA TABEL (Ciemnoszare, żeby odróżniały się od tła) */
         [data-testid="stDataEditor"], [data-testid="stDataFrame"] {
-            background-color: #161717 !important; /* Tło pod tabelą */
+            background-color: #121212 !important; /* Tło pod tabelą */
             border: 1px solid #333;
             border-radius: 10px;
             padding: 10px;
@@ -50,13 +50,13 @@ def local_css():
         
         /* Stylizacja nagłówków */
         h1 {
-            color: #8B4513 !important; /* Brązowy */
+            color: #FAFAFA !important; /* Brązowy */
             text-align: center;
             font-weight: 1000;
             margin-bottom: 0px;
         }
         h2 {
-            color: #1B4D3E !important; /* Butelkowa zieleń */
+            color: #FAFAFA !important; /* Butelkowa zieleń */
             border-bottom: 2px solid #FFFFFF;
             padding-bottom: 10px;
         }
