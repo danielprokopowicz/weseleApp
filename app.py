@@ -15,35 +15,30 @@ import altair as alt
 import numpy as np
 
 # --- STYLIZACJA CSS (UI) ---
+# --- STYLIZACJA CSS (UI) ---
 def local_css():
     st.markdown("""
     <style>
-        /* 1. GŁÓWNE TŁO APLIKACJI */
+        /* 1. GŁÓWNE TŁO APLIKACJI (Czarne/Ciemne) */
         .stApp {
-            background-color: #0E1117 !important; /* Bardzo ciemne tło (prawie czarne) */
+            background-color: #0E1117 !important;
         }
 
-        /* 2. TŁO PASKA BOCZNEGO (jeśli używasz) */
-        [data-testid="stSidebar"] {
-            background-color: #161a24 !important;
-        }
-
-        /* 3. STYLIZACJA TEKSTU (Globalna) */
+        /* 2. TEKST I CZCIONKA (Kolor biały jest konieczny na ciemnym tle) */
         html, body, [class*="css"] {
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            color: #FAFAFA !important; /* Biały tekst wszędzie */
+            color: #FAFAFA !important;
         }
 
-        /* 4. STYLIZACJA TABEL (Data Editor) */
-        /* To zmienia tło kontenera tabeli */
+        /* 3. TŁO DLA TABEL (Ciemnoszare, żeby odróżniały się od tła) */
         [data-testid="stDataEditor"], [data-testid="stDataFrame"] {
-            background-color: #1E1E1E !important; /* Ciemnoszare tło pod tabelą */
+            background-color: #1a1a1a !important; /* Tło pod tabelą */
             border: 1px solid #333;
             border-radius: 10px;
             padding: 10px;
         }
-        
-        /* 5. PRZESUNIĘCIE TYTUŁU WYŻEJ */
+
+        /* PRZESUNIĘCIE TYTUŁU WYŻEJ */
         .block-container {
             padding-top: 2rem !important;
             padding-bottom: 2rem !important;
@@ -54,7 +49,7 @@ def local_css():
         footer {visibility: hidden;}
         header {visibility: hidden;}
         
-        /* 6. NAGŁÓWKI */
+        /* Stylizacja nagłówków */
         h1 {
             color: #8B4513 !important; /* Brązowy */
             text-align: center;
@@ -63,38 +58,34 @@ def local_css():
         }
         h2 {
             color: #1B4D3E !important; /* Butelkowa zieleń */
-            border-bottom: 2px solid #333; /* Ciemna linia oddzielająca */
+            border-bottom: 2px solid #FFFFFF;
             padding-bottom: 10px;
         }
         
-        /* 7. KAFELKI (METRYKI) - CZARNE */
+        /* --- STYLIZACJA KAFELKÓW (METRYK) NA CZARNO --- */
         [data-testid="stMetric"] {
-            background-color: #000000 !important;
-            border: 1px solid #333;
+            background-color: #000000 !important; /* Czarne tło */
+            border: 1px solid #333; /* Ciemnoszara ramka */
             padding: 15px;
             border-radius: 10px;
-            box-shadow: 2px 2px 10px rgba(0,0,0,0.7);
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
         }
         [data-testid="stMetricLabel"] {
-            color: #F5F5DC !important; /* Beżowy */
+            color: #F5F5DC !important; /* Beżowy napis */
         }
         [data-testid="stMetricValue"] {
-            color: #4CAF50 !important; /* Zielony */
+            color: #4CAF50 !important; /* Zielona wartość */
         }
         
-        /* 8. ZAKŁADKI (TABS) */
+        /* Powiększenie zakładek (Tabs) */
         button[data-baseweb="tab"] {
             font-size: 18px !important;
             font-weight: 600 !important;
-            background-color: #1E1E1E !important; /* Tło nieaktywnej zakładki */
-            color: #AAAAAA !important; /* Tekst nieaktywnej zakładki */
-            border-radius: 5px 5px 0 0;
-            margin-right: 2px;
         }
         
-        /* Aktywna zakładka */
+        /* Kolor aktywnej zakładki */
         button[data-baseweb="tab"][aria-selected="true"] {
-            background-color: #1B4D3E !important; /* Butelkowa zieleń */
+            background-color: #787a79 !important;
             color: white !important;
         }
     </style>
