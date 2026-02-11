@@ -122,6 +122,8 @@ def load_obsluga():
     if worksheet_obsluga is None:
         return pd.DataFrame(columns=KOLUMNY_OBSLUGA)
     df = pobierz_dane(worksheet_obsluga)
+    if 'ID' in df.columns:
+        df = df.drop(columns=['ID'])
     if df.empty:
         df = pd.DataFrame(columns=KOLUMNY_OBSLUGA)
     df["Koszt"] = pd.to_numeric(df["Koszt"], errors='coerce').fillna(0.0)
