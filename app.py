@@ -20,7 +20,7 @@ def local_css():
     <style>
         /* 1. GŁÓWNE TŁO APLIKACJI (Czarne/Ciemne) */
         .stApp {
-            background-color: #000000 !important;
+            background-color: #161717 !important;
         }
 
         /* 2. TEKST I CZCIONKA (Kolor biały jest konieczny na ciemnym tle) */
@@ -31,7 +31,7 @@ def local_css():
 
         /* 3. TŁO DLA TABEL (Ciemnoszare, żeby odróżniały się od tła) */
         [data-testid="stDataEditor"], [data-testid="stDataFrame"] {
-            background-color: #010205 !important; /* Tło pod tabelą */
+            background-color: #161717 !important; /* Tło pod tabelą */
             border: 1px solid #333;
             border-radius: 10px;
             padding: 10px;
