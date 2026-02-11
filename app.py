@@ -15,7 +15,6 @@ import altair as alt
 import numpy as np
 
 # --- STYLIZACJA CSS (UI) ---
-# --- STYLIZACJA CSS (UI) ---
 def local_css():
     st.markdown("""
     <style>
@@ -72,10 +71,6 @@ def local_css():
         }
         [data-testid="stMetricValue"] {
             color: #4CAF50 !important; /* Zielony */
-        }
-
-        div[data-baseweb="tab-panel"]:nth-of-type(2) div[data-testid="column"]:nth-of-type(3) [data-testid="stMetricValue"] {
-            color: #ff4b4b !important; /* Czerwony */
         }
         
         /* Powiększenie zakładek (Tabs) */
@@ -611,21 +606,60 @@ with tab2:
         st.success("Zapisano!")
         st.rerun()
 
+    # --- PODSUMOWANIE FINANSOWE (WYKRESY I KAFELKI) ---
     if not df_obsluga.empty:
         calc = df_obsluga.copy()
         calc["Koszt"] = pd.to_numeric(calc["Koszt"], errors='coerce').fillna(0.0)
         calc["Zaliczka"] = pd.to_numeric(calc["Zaliczka"], errors='coerce').fillna(0.0)
+        
         total = calc["Koszt"].sum()
         paid = 0.0
         for i, r in calc.iterrows():
             if fix_bool(r["Czy_Oplacone"]): paid += r["Koszt"]
             elif fix_bool(r["Czy_Zaliczka_Oplacona"]): paid += r["Zaliczka"]
         
+        to_pay = total - paid
+        
         st.write("---")
+        
+        # --- NOWE KAFELKI (HTML) - GWARANCJA KOLORÓW ---
+        # Definiujemy styl dla kafelka, żeby nie powtarzać kodu
+        card_style = """
+            background-color: #222222; 
+            border: 1px solid #444; 
+            padding: 15px; 
+            border-radius: 10px; 
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+            text-align: left;
+            margin-bottom: 10px;
+        """
+        
         c1, c2, c3 = st.columns(3)
-        c1.metric("Łącznie", f"{total:,.0f} zł")
-        c2.metric("Zapłacono", f"{paid:,.0f} zł")
-        c3.metric("Do zapłaty", f"{total-paid:,.0f} zł", delta=-(total-paid), delta_color="red")
+        
+        # 1. Łącznie (ZIELONY)
+        c1.markdown(f"""
+            <div style="{card_style}">
+                <div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Łącznie</div>
+                <div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{total:,.0f} zł</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # 2. Zapłacono (ZIELONY)
+        c2.markdown(f"""
+            <div style="{card_style}">
+                <div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Zapłacono</div>
+                <div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{paid:,.0f} zł</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # 3. Do zapłaty (CZERWONY - #ff4b4b)
+        c3.markdown(f"""
+            <div style="{card_style}">
+                <div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Do zapłaty</div>
+                <div style="color: #ff4b4b; font-size: 30px; font-weight: 700;">{to_pay:,.0f} zł</div>
+                <div style="color: #ff4b4b; font-size: 14px;">▼ -{to_pay:,.0f}</div>
+            </div>
+        """, unsafe_allow_html=True)
 
         st.write("---")
         st.subheader("📊 Struktura Wydatków")
@@ -633,6 +667,7 @@ with tab2:
         grp = grp[grp["Koszt"] > 0]
 
         if not grp.empty:
+            # ... (TUTAJ DALEJ IDZIE TWÓJ KOD WYKRESÓW BEZ ZMIAN) ...
             st.write("**Ile wydajemy na co? (w zł)**")
             chart = alt.Chart(grp).mark_bar().encode(
                 x=alt.X('Koszt', title='Kwota (zł)'),
@@ -646,6 +681,10 @@ with tab2:
             st.write("**Udział procentowy**")
             
             fig, ax = plt.subplots(figsize=(6, 6))
+            # Ustawienie przezroczystości dla wykresu kołowego
+            fig.patch.set_alpha(0)
+            ax.patch.set_alpha(0)
+            
             wedges, texts, autotexts = ax.pie(
                 grp["Koszt"], 
                 labels=grp["Kategoria"], 
@@ -655,8 +694,6 @@ with tab2:
             )
             plt.setp(autotexts, size=10, weight="bold", color="white")
             plt.setp(texts, size=10, color="white")
-            fig.patch.set_alpha(0)
-            ax.patch.set_alpha(0)
             ax.axis('equal')
             
             c_center = st.columns([1,2,1])
