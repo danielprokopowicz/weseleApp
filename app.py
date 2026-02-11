@@ -14,7 +14,56 @@ import altair as alt
 
 import numpy as np
 
+def local_css():
+    st.markdown("""
+    <style>
+        /* Zmiana fontu dla całej strony */
+        html, body, [class*="css"] {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        }
+        
+        /* Ukrycie menu hamburgera i stopki "Made with Streamlit" */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        
+        /* Stylizacja nagłówków */
+        h1 {
+            color: #8B4513; /* Brązowy, pasuje do stołów */
+            text-align: center;
+            font-weight: 700;
+        }
+        h2 {
+            color: #1B4D3E; /* Butelkowa zieleń */
+            border-bottom: 2px solid #F5F5DC;
+            padding-bottom: 10px;
+        }
+        
+        /* Stylizacja metryk (karty z budżetem) */
+        [data-testid="stMetric"] {
+            background-color: #1e1e1e; /* Ciemne tło karty */
+            border: 1px solid #333;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+        }
+        
+        /* Powiększenie zakładek (Tabs) */
+        button[data-baseweb="tab"] {
+            font-size: 18px !important;
+            font-weight: 600 !important;
+        }
+        
+        /* Kolor aktywnej zakładki */
+        button[data-baseweb="tab"][aria-selected="true"] {
+            background-color: #1B4D3E !important;
+            color: white !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
+# --- WYWOŁANIE FUNKCJI ---
+local_css()
 
 # --- STAŁE ---
 
