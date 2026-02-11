@@ -333,7 +333,7 @@ with tab2:
             df_obsluga[c] = ""
             if c == "Kategoria": df_obsluga[c] = "Inne"
 
-    base_cats = ["Sala i Jedzenie", "Muzyka", "Foto/Video", "Stroje", "Dekoracje", "Transport", "Inne"]
+    base_cats = ["Inne"]
     if not df_obsluga.empty:
         curr = df_obsluga["Kategoria"].unique().tolist()
         all_cats = sorted(list(set(base_cats + [x for x in curr if str(x).strip() != ""])))
