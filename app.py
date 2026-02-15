@@ -247,14 +247,10 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
     pdf.cell(200, 10, txt=clean_text("Podsumowanie wesela"), ln=1, align='C')
     pdf.ln(10)
 
-        # --- Lista gości ---
+    # --- Lista gości ---
     pdf.set_font(font_family, size=14)
     pdf.cell(200, 10, txt=clean_text("Lista gości"), ln=1)
     pdf.set_font(font_family, size=10)
-    nowe_wiersze = []
-    nowe_wiersze.append([imie_glowne, "", czy_rsvp, czy_zaproszenie, ""])  # dodajemy pustą dietę
-    if czy_z_osoba and imie_partnera:
-        nowe_wiersze.append([imie_partnera, f"(Osoba tow. dla: {imie_glowne})", czy_rsvp, czy_zaproszenie, ""])
     if not goscie_df.empty:
         for _, row in goscie_df.iterrows():
             pdf.cell(200, 8, txt=clean_text(row['Imie_Nazwisko']), ln=1)
@@ -300,12 +296,10 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
     else:
         pdf.cell(200, 8, txt=clean_text("Brak harmonogramu"), ln=1)
 
-    # Generowanie PDF – bezpieczne dla różnych wersji fpdf2
+    # Generowanie PDF
     pdf_bytes = pdf.output()
     if isinstance(pdf_bytes, str):
         pdf_bytes = pdf_bytes.encode('utf-8')
-    
-    # Zwracamy BytesIO zamiast surowych bajtów
     return BytesIO(pdf_bytes)
 # --- UI APLIKACJI ---
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["👥 Lista Gości", "🎧 Organizacja", "✅ Lista Zadań", "🍽️ Rozplanowanie Stołów", "⏰ Harmonogram Dnia", "🍽️ Menu i Diety"])
