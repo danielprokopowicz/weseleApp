@@ -180,6 +180,8 @@ def load_harmonogram():
     if worksheet_harmonogram is None:
         return pd.DataFrame(columns=KOLUMNY_HARMONOGRAM)
     df = pobierz_dane(worksheet_harmonogram)
+    if 'ID' in df.columns:
+        df = df.drop(columns=['ID'])
     if df.empty:
         df = pd.DataFrame(columns=KOLUMNY_HARMONOGRAM)
     for col in KOLUMNY_HARMONOGRAM:
