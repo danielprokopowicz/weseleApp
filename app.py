@@ -195,7 +195,6 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
     import unicodedata
 
     def usun_polskie_znaki(tekst):
-        # Zamienia polskie znaki na zwykłe litery (np. ą -> a)
         return ''.join(
             c for c in unicodedata.normalize('NFD', tekst)
             if unicodedata.category(c) != 'Mn'
@@ -203,13 +202,12 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
 
     pdf = FPDF()
     
-    # Sprawdź, czy plik czcionki istnieje
     czcionka_ok = os.path.exists("fonts/DejaVuSans.ttf")
     if czcionka_ok:
         pdf.add_font("DejaVu", "", "fonts/DejaVuSans.ttf")
         pdf.set_font("DejaVu", size=12)
         font_family = "DejaVu"
-        clean_text = lambda x: x  # bez zmian
+        clean_text = lambda x: x
     else:
         pdf.set_font("helvetica", size=12)
         font_family = "helvetica"
@@ -276,8 +274,11 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
     else:
         pdf.cell(200, 8, txt=clean_text("Brak harmonogramu"), ln=1)
 
-    # Zwracamy bajty – kodowanie utf-8 (działa z polskimi znakami jeśli czcionka jest)
-    return pdf.output(dest='S').encode('utf-8')
+    # Generowanie PDF – bezpieczne dla różnych wersji fpdf2
+    pdf_bytes = pdf.output()
+    if isinstance(pdf_bytes, str):
+        pdf_bytes = pdf_bytes.encode('utf-8')
+    return pdf_bytes
 # --- UI APLIKACJI ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["👥 Lista Gości", "🎧 Organizacja", "✅ Lista Zadań", "🍽️ Rozplanowanie Stołów", "⏰ Harmonogram Dnia"])
 
