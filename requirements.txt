@@ -5,4 +5,4 @@ oauth2client
 matplotlib
 altair
 numpy
-fpdf2>=2.5.3
+fpdf2>=2.7.0
