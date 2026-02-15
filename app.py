@@ -191,17 +191,21 @@ def load_harmonogram():
 
 # --- FUNKCJA GENERUJĄCA PDF ---
 def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
-    # Ładujemy czcionkę DejaVu z pliku .ttf znajdującego się w folderze 'fonts'
+    import os
+    if not os.path.exists("fonts/DejaVuSans.ttf") or not os.path.exists("fonts/DejaVuSans-Bold.ttf"):
+        st.error("Brak plików czcionek DejaVu w folderze 'fonts'. Pobierz je z GitHub i dodaj do repozytorium.")
+        st.stop()
+
     pdf = FPDF()
     pdf.add_font("DejaVu", "", "fonts/DejaVuSans.ttf")
+    pdf.add_font("DejaVu", "B", "fonts/DejaVuSans-Bold.ttf")
     pdf.set_font("DejaVu", size=12)
     pdf.add_page()
 
-    # Tytuł
+    pdf.set_font("DejaVu", 'B', size=16)
     pdf.cell(200, 10, txt="Podsumowanie wesela", ln=1, align='C')
     pdf.ln(10)
 
-    # --- Lista gości ---
     pdf.set_font("DejaVu", 'B', size=14)
     pdf.cell(200, 10, txt="Lista gości", ln=1)
     pdf.set_font("DejaVu", size=10)
@@ -215,7 +219,6 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
         pdf.cell(200, 8, txt="Brak gości", ln=1)
     pdf.ln(5)
 
-    # --- Rozsadzenie przy stołach ---
     pdf.set_font("DejaVu", 'B', size=14)
     pdf.cell(200, 10, txt="Rozsadzenie przy stołach", ln=1)
     pdf.set_font("DejaVu", size=10)
@@ -233,7 +236,6 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
         pdf.cell(200, 8, txt="Brak danych o stołach", ln=1)
     pdf.ln(5)
 
-    # --- Harmonogram dnia ---
     pdf.set_font("DejaVu", 'B', size=14)
     pdf.cell(200, 10, txt="Harmonogram dnia", ln=1)
     pdf.set_font("DejaVu", size=10)
