@@ -222,17 +222,13 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
     pdf.cell(200, 10, txt=clean_text("Podsumowanie wesela"), ln=1, align='C')
     pdf.ln(10)
 
-    # --- Lista gości ---
+        # --- Lista gości ---
     pdf.set_font(font_family, size=14)
     pdf.cell(200, 10, txt=clean_text("Lista gości"), ln=1)
     pdf.set_font(font_family, size=10)
     if not goscie_df.empty:
-        goscie_list = goscie_df[['Imie_Nazwisko', 'RSVP', 'Zaproszenie_Wyslane']].copy()
-        goscie_list['RSVP'] = goscie_list['RSVP'].apply(lambda x: 'Tak' if x else 'Nie')
-        goscie_list['Zaproszenie_Wyslane'] = goscie_list['Zaproszenie_Wyslane'].apply(lambda x: 'Tak' if x else 'Nie')
-        for _, row in goscie_list.iterrows():
-            linia = f"{row['Imie_Nazwisko']} - RSVP: {row['RSVP']}, Zaproszenie: {row['Zaproszenie_Wyslane']}"
-            pdf.cell(200, 8, txt=clean_text(linia), ln=1)
+        for _, row in goscie_df.iterrows():
+            pdf.cell(200, 8, txt=clean_text(row['Imie_Nazwisko']), ln=1)
     else:
         pdf.cell(200, 8, txt=clean_text("Brak gości"), ln=1)
     pdf.ln(5)
@@ -916,6 +912,8 @@ with tab5:
         df_disp_harm = df_disp_harm.sort_values("Godzina")
 
     edited_harm = st.data_editor(
+        if 'ID' in edited_harm.columns:
+            edited_harm = edited_harm.drop(columns=['ID'])
         df_disp_harm,
         num_rows="dynamic",
         column_config={
@@ -933,7 +931,8 @@ with tab5:
         to_save = to_save[to_save["Godzina"].str.strip() != ""]
         to_save = to_save[to_save["Czynność"].str.strip() != ""]
         to_save = to_save.fillna("")
-
+        if 'ID' in to_save.columns:
+            to_save = to_save.drop(columns=['ID'])
         aktualizuj_caly_arkusz(worksheet_harmonogram, to_save)
         st.session_state["df_harmonogram"] = to_save
         st.success("Zapisano harmonogram!")
