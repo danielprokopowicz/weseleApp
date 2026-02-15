@@ -907,11 +907,19 @@ with tab5:
     st.subheader(f"📅 Harmonogram ({len(df_harm)} pozycji)")
 
     df_disp_harm = df_harm.copy()
+    # Usuń ewentualną kolumnę ID
+    if 'ID' in df_disp_harm.columns:
+        df_disp_harm = df_disp_harm.drop(columns=['ID'])
+
+    # Sortowanie po godzinie
     try:
         df_disp_harm["czas_sort"] = pd.to_datetime(df_disp_harm["Godzina"], format="%H:%M", errors='coerce')
         df_disp_harm = df_disp_harm.sort_values("czas_sort").drop(columns=["czas_sort"])
     except:
         df_disp_harm = df_disp_harm.sort_values("Godzina")
+
+    # Konwersja wszystkich kolumn na string – zapobiega błędom typów w data_editor
+    df_disp_harm = df_disp_harm.fillna("").astype(str)
 
     edited_harm = st.data_editor(
         df_disp_harm,
@@ -925,8 +933,6 @@ with tab5:
         hide_index=True,
         key="editor_harm"
     )
-    if 'ID' in edited_harm.columns:
-        edited_harm = edited_harm.drop(columns=['ID'])
 
     if st.button("💾 Zapisz harmonogram", key="save_harm"):
         to_save = edited_harm.copy()
