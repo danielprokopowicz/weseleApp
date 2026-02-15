@@ -912,8 +912,6 @@ with tab5:
         df_disp_harm = df_disp_harm.sort_values("Godzina")
 
     edited_harm = st.data_editor(
-        if 'ID' in edited_harm.columns:
-            edited_harm = edited_harm.drop(columns=['ID'])
         df_disp_harm,
         num_rows="dynamic",
         column_config={
@@ -925,6 +923,8 @@ with tab5:
         hide_index=True,
         key="editor_harm"
     )
+    if 'ID' in edited_harm.columns:
+        edited_harm = edited_harm.drop(columns=['ID'])
 
     if st.button("💾 Zapisz harmonogram", key="save_harm"):
         to_save = edited_harm.copy()
