@@ -192,61 +192,74 @@ def load_harmonogram():
 # --- FUNKCJA GENERUJĄCA PDF ---
 def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
     import os
+    import unicodedata
+
+    def usun_polskie_znaki(tekst):
+        # Zamienia polskie znaki na zwykłe litery (np. ą -> a)
+        return ''.join(
+            c for c in unicodedata.normalize('NFD', tekst)
+            if unicodedata.category(c) != 'Mn'
+        )
+
     pdf = FPDF()
     
-    # Próba załadowania czcionki DejaVu z pliku .ttf
-    if os.path.exists("fonts/DejaVuSans.ttf"):
+    # Sprawdź, czy plik czcionki istnieje
+    czcionka_ok = os.path.exists("fonts/DejaVuSans.ttf")
+    if czcionka_ok:
         pdf.add_font("DejaVu", "", "fonts/DejaVuSans.ttf")
         pdf.set_font("DejaVu", size=12)
         font_family = "DejaVu"
+        clean_text = lambda x: x  # bez zmian
     else:
-        # Fallback na helvetica – bez polskich znaków, ale PDF zadziała
         pdf.set_font("helvetica", size=12)
         font_family = "helvetica"
+        clean_text = usun_polskie_znaki
         st.warning("Używam domyślnej czcionki – polskie znaki mogą być niepoprawne.")
 
     pdf.add_page()
 
-    # Tytuł (większy rozmiar)
+    # Tytuł
     pdf.set_font(font_family, size=16)
-    pdf.cell(200, 10, txt="Podsumowanie wesela", ln=1, align='C')
+    pdf.cell(200, 10, txt=clean_text("Podsumowanie wesela"), ln=1, align='C')
     pdf.ln(10)
 
     # --- Lista gości ---
     pdf.set_font(font_family, size=14)
-    pdf.cell(200, 10, txt="Lista gości", ln=1)
+    pdf.cell(200, 10, txt=clean_text("Lista gości"), ln=1)
     pdf.set_font(font_family, size=10)
     if not goscie_df.empty:
         goscie_list = goscie_df[['Imie_Nazwisko', 'RSVP', 'Zaproszenie_Wyslane']].copy()
         goscie_list['RSVP'] = goscie_list['RSVP'].apply(lambda x: 'Tak' if x else 'Nie')
         goscie_list['Zaproszenie_Wyslane'] = goscie_list['Zaproszenie_Wyslane'].apply(lambda x: 'Tak' if x else 'Nie')
         for _, row in goscie_list.iterrows():
-            pdf.cell(200, 8, txt=f"{row['Imie_Nazwisko']} - RSVP: {row['RSVP']}, Zaproszenie: {row['Zaproszenie_Wyslane']}", ln=1)
+            linia = f"{row['Imie_Nazwisko']} - RSVP: {row['RSVP']}, Zaproszenie: {row['Zaproszenie_Wyslane']}"
+            pdf.cell(200, 8, txt=clean_text(linia), ln=1)
     else:
-        pdf.cell(200, 8, txt="Brak gości", ln=1)
+        pdf.cell(200, 8, txt=clean_text("Brak gości"), ln=1)
     pdf.ln(5)
 
     # --- Rozsadzenie przy stołach ---
     pdf.set_font(font_family, size=14)
-    pdf.cell(200, 10, txt="Rozsadzenie przy stołach", ln=1)
+    pdf.cell(200, 10, txt=clean_text("Rozsadzenie przy stołach"), ln=1)
     pdf.set_font(font_family, size=10)
     if not stoly_df.empty:
         for _, row in stoly_df.iterrows():
-            pdf.cell(200, 8, txt=f"Stół {row['Numer']} ({row['Ksztalt']}, {row['Liczba_Miejsc']} miejsc):", ln=1)
+            linia = f"Stół {row['Numer']} ({row['Ksztalt']}, {row['Liczba_Miejsc']} miejsc):"
+            pdf.cell(200, 8, txt=clean_text(linia), ln=1)
             goscie_przy_stole = row['Goscie_Lista'].split(';') if row['Goscie_Lista'] else []
             goscie_przy_stole = [g for g in goscie_przy_stole if g.strip()]
             if goscie_przy_stole:
                 for gosc in goscie_przy_stole:
-                    pdf.cell(200, 6, txt=f"   - {gosc}", ln=1)
+                    pdf.cell(200, 6, txt=clean_text(f"   - {gosc}"), ln=1)
             else:
-                pdf.cell(200, 6, txt="   (brak gości)", ln=1)
+                pdf.cell(200, 6, txt=clean_text("   (brak gości)"), ln=1)
     else:
-        pdf.cell(200, 8, txt="Brak danych o stołach", ln=1)
+        pdf.cell(200, 8, txt=clean_text("Brak danych o stołach"), ln=1)
     pdf.ln(5)
 
     # --- Harmonogram dnia ---
     pdf.set_font(font_family, size=14)
-    pdf.cell(200, 10, txt="Harmonogram dnia", ln=1)
+    pdf.cell(200, 10, txt=clean_text("Harmonogram dnia"), ln=1)
     pdf.set_font(font_family, size=10)
     if not harmonogram_df.empty:
         harm_sorted = harmonogram_df.copy()
@@ -259,11 +272,12 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
             txt = f"{row['Godzina']} - {row['Czynność']}"
             if row['Uwagi']:
                 txt += f" ({row['Uwagi']})"
-            pdf.cell(200, 8, txt=txt, ln=1)
+            pdf.cell(200, 8, txt=clean_text(txt), ln=1)
     else:
-        pdf.cell(200, 8, txt="Brak harmonogramu", ln=1)
+        pdf.cell(200, 8, txt=clean_text("Brak harmonogramu"), ln=1)
 
-    return pdf.output()
+    # Zwracamy bajty – kodowanie utf-8 (działa z polskimi znakami jeśli czcionka jest)
+    return pdf.output(dest='S').encode('utf-8')
 # --- UI APLIKACJI ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["👥 Lista Gości", "🎧 Organizacja", "✅ Lista Zadań", "🍽️ Rozplanowanie Stołów", "⏰ Harmonogram Dnia"])
 
