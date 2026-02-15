@@ -7,11 +7,11 @@ import matplotlib.pyplot as plt
 import altair as alt
 import numpy as np
 from gspread.exceptions import WorksheetNotFound
-from fpdf import FPDF          # <-- nowy import
-import io                      # <-- nowy import
+from fpdf import FPDF         
+import io                     
 
 # --- STAŁA DATA ŚLUBU (możesz zmienić) ---
-DATA_SLUBU = date(2025, 8, 16)   # <-- wpisz swoją datę
+DATA_SLUBU = date(2027, 13, 07)   # <-- wpisz swoją datę
 
 # --- STYLIZACJA CSS ---
 def local_css():
@@ -191,18 +191,20 @@ def load_harmonogram():
 
 # --- FUNKCJA GENERUJĄCA PDF ---
 def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
+    from fpdf.fonts import DejaVu
     pdf = FPDF()
+    pdf.add_font("DejaVu", "", DejaVu.ttf())
+    pdf.set_font("DejaVu", size=12)
     pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    
+
     # Tytuł
     pdf.cell(200, 10, txt="Podsumowanie wesela", ln=1, align='C')
     pdf.ln(10)
-    
+
     # --- Lista gości ---
-    pdf.set_font("Arial", 'B', size=14)
+    pdf.set_font("DejaVu", 'B', size=14)
     pdf.cell(200, 10, txt="Lista gości", ln=1)
-    pdf.set_font("Arial", size=10)
+    pdf.set_font("DejaVu", size=10)
     if not goscie_df.empty:
         goscie_list = goscie_df[['Imie_Nazwisko', 'RSVP', 'Zaproszenie_Wyslane']].copy()
         goscie_list['RSVP'] = goscie_list['RSVP'].apply(lambda x: 'Tak' if x else 'Nie')
@@ -212,11 +214,11 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
     else:
         pdf.cell(200, 8, txt="Brak gości", ln=1)
     pdf.ln(5)
-    
+
     # --- Rozsadzenie przy stołach ---
-    pdf.set_font("Arial", 'B', size=14)
+    pdf.set_font("DejaVu", 'B', size=14)
     pdf.cell(200, 10, txt="Rozsadzenie przy stołach", ln=1)
-    pdf.set_font("Arial", size=10)
+    pdf.set_font("DejaVu", size=10)
     if not stoly_df.empty:
         for _, row in stoly_df.iterrows():
             pdf.cell(200, 8, txt=f"Stół {row['Numer']} ({row['Ksztalt']}, {row['Liczba_Miejsc']} miejsc):", ln=1)
@@ -230,11 +232,11 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
     else:
         pdf.cell(200, 8, txt="Brak danych o stołach", ln=1)
     pdf.ln(5)
-    
+
     # --- Harmonogram dnia ---
-    pdf.set_font("Arial", 'B', size=14)
+    pdf.set_font("DejaVu", 'B', size=14)
     pdf.cell(200, 10, txt="Harmonogram dnia", ln=1)
-    pdf.set_font("Arial", size=10)
+    pdf.set_font("DejaVu", size=10)
     if not harmonogram_df.empty:
         harm_sorted = harmonogram_df.copy()
         try:
@@ -249,7 +251,7 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
             pdf.cell(200, 8, txt=txt, ln=1)
     else:
         pdf.cell(200, 8, txt="Brak harmonogramu", ln=1)
-    
+
     return pdf.output(dest='S').encode('latin1')
 
 # --- UI APLIKACJI ---
