@@ -80,7 +80,7 @@ else:
     st.success("🎉 Wesele już było! Czas na miesiąc miodowy!")
 
 # --- STAŁE ---
-KOLUMNY_GOSCIE   = ["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP", "Zaproszenie_Wyslane"]
+KOLUMNY_GOSCIE = ["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP", "Zaproszenie_Wyslane", "Dieta"]
 KOLUMNY_OBSLUGA  = ["Kategoria", "Rola", "Informacje", "Koszt", "Czy_Oplacone", "Zaliczka", "Czy_Zaliczka_Oplacona"]
 KOLUMNY_ZADANIA  = ["Zadanie", "Termin", "Czy_Zrobione"]
 KOLUMNY_STOLY    = ["Numer", "Ksztalt", "Liczba_Miejsc", "Goscie_Lista"]
@@ -251,6 +251,10 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
     pdf.set_font(font_family, size=14)
     pdf.cell(200, 10, txt=clean_text("Lista gości"), ln=1)
     pdf.set_font(font_family, size=10)
+    nowe_wiersze = []
+    nowe_wiersze.append([imie_glowne, "", czy_rsvp, czy_zaproszenie, ""])  # dodajemy pustą dietę
+    if czy_z_osoba and imie_partnera:
+        nowe_wiersze.append([imie_partnera, f"(Osoba tow. dla: {imie_glowne})", czy_rsvp, czy_zaproszenie, ""])
     if not goscie_df.empty:
         for _, row in goscie_df.iterrows():
             pdf.cell(200, 8, txt=clean_text(row['Imie_Nazwisko']), ln=1)
