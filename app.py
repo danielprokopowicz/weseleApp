@@ -192,23 +192,29 @@ def load_harmonogram():
 # --- FUNKCJA GENERUJĄCA PDF ---
 def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
     import os
-    if not os.path.exists("fonts/DejaVuSans.ttf") or not os.path.exists("fonts/DejaVuSans-Bold.ttf"):
-        st.error("Brak plików czcionek DejaVu w folderze 'fonts'. Pobierz je z GitHub i dodaj do repozytorium.")
-        st.stop()
-
     pdf = FPDF()
-    pdf.add_font("DejaVu", "", "fonts/DejaVuSans.ttf")
-    pdf.add_font("DejaVu", "B", "fonts/DejaVuSans-Bold.ttf")
-    pdf.set_font("DejaVu", size=12)
+    
+    # Próba załadowania czcionki DejaVu z pliku .ttf
+    if os.path.exists("fonts/DejaVuSans.ttf"):
+        pdf.add_font("DejaVu", "", "fonts/DejaVuSans.ttf")
+        pdf.set_font("DejaVu", size=12)
+        font_family = "DejaVu"
+    else:
+        # Fallback na helvetica – bez polskich znaków, ale PDF zadziała
+        pdf.set_font("helvetica", size=12)
+        font_family = "helvetica"
+        st.warning("Używam domyślnej czcionki – polskie znaki mogą być niepoprawne.")
+
     pdf.add_page()
 
-    pdf.set_font("DejaVu", 'B', size=16)
+    # Tytuł
     pdf.cell(200, 10, txt="Podsumowanie wesela", ln=1, align='C')
     pdf.ln(10)
 
-    pdf.set_font("DejaVu", 'B', size=14)
+    # --- Lista gości ---
+    pdf.set_font(font_family, 'B', size=14)
     pdf.cell(200, 10, txt="Lista gości", ln=1)
-    pdf.set_font("DejaVu", size=10)
+    pdf.set_font(font_family, size=10)
     if not goscie_df.empty:
         goscie_list = goscie_df[['Imie_Nazwisko', 'RSVP', 'Zaproszenie_Wyslane']].copy()
         goscie_list['RSVP'] = goscie_list['RSVP'].apply(lambda x: 'Tak' if x else 'Nie')
@@ -219,9 +225,10 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
         pdf.cell(200, 8, txt="Brak gości", ln=1)
     pdf.ln(5)
 
-    pdf.set_font("DejaVu", 'B', size=14)
+    # --- Rozsadzenie przy stołach ---
+    pdf.set_font(font_family, 'B', size=14)
     pdf.cell(200, 10, txt="Rozsadzenie przy stołach", ln=1)
-    pdf.set_font("DejaVu", size=10)
+    pdf.set_font(font_family, size=10)
     if not stoly_df.empty:
         for _, row in stoly_df.iterrows():
             pdf.cell(200, 8, txt=f"Stół {row['Numer']} ({row['Ksztalt']}, {row['Liczba_Miejsc']} miejsc):", ln=1)
@@ -236,9 +243,10 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
         pdf.cell(200, 8, txt="Brak danych o stołach", ln=1)
     pdf.ln(5)
 
-    pdf.set_font("DejaVu", 'B', size=14)
+    # --- Harmonogram dnia ---
+    pdf.set_font(font_family, 'B', size=14)
     pdf.cell(200, 10, txt="Harmonogram dnia", ln=1)
-    pdf.set_font("DejaVu", size=10)
+    pdf.set_font(font_family, size=10)
     if not harmonogram_df.empty:
         harm_sorted = harmonogram_df.copy()
         try:
@@ -254,7 +262,7 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
     else:
         pdf.cell(200, 8, txt="Brak harmonogramu", ln=1)
 
-    return pdf.output(dest='S').encode('latin1')
+    return pdf.output()
 # --- UI APLIKACJI ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["👥 Lista Gości", "🎧 Organizacja", "✅ Lista Zadań", "🍽️ Rozplanowanie Stołów", "⏰ Harmonogram Dnia"])
 
