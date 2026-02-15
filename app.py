@@ -269,7 +269,7 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
             
             if not dieta_counts.empty:
                 pdf.set_font(font_family, size=14)
-                pdf.cell(200, 10, txt=clean_text("Podsumowanie diet (potwierdzeni)"), ln=1)
+                pdf.cell(200, 10, txt=clean_text("Podsumowanie diet"), ln=1)
                 pdf.set_font(font_family, size=10)
                 for _, row in dieta_counts.iterrows():
                     linia = f"{row['Opcja']}: {row['Liczba']}"
@@ -328,7 +328,7 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
         pdf_bytes = pdf_bytes.encode('utf-8')
     return BytesIO(pdf_bytes)
 # --- UI APLIKACJI ---
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["👥 Lista Gości", "🎧 Organizacja", "✅ Lista Zadań", "🍽️ Rozplanowanie Stołów", "⏰ Harmonogram Dnia", "🍽️ Menu i Diety"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["👥 Lista Gości", "🎧 Organizacja", "✅ Lista Zadań", "🍽️ Rozplanowanie Stołów", "⏰ Harmonogram Dnia", "🍽️ Diety"])
 
 # ==========================
 # ZAKŁADKA 1: GOŚCIE
