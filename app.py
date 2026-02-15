@@ -49,6 +49,7 @@ KOLUMNY_GOSCIE   = ["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP", "Zaproszenie_Wysl
 KOLUMNY_OBSLUGA  = ["Kategoria", "Rola", "Informacje", "Koszt", "Czy_Oplacone", "Zaliczka", "Czy_Zaliczka_Oplacona"]
 KOLUMNY_ZADANIA  = ["Zadanie", "Termin", "Czy_Zrobione"]
 KOLUMNY_STOLY    = ["Numer", "Ksztalt", "Liczba_Miejsc", "Goscie_Lista"]
+KOLUMNY_HARMONOGRAM = ["Godzina", "Czynność", "Uwagi"]   # nowe
 
 # --- POŁĄCZENIE Z GOOGLE SHEETS I CACHE'OWANIE ARKUSZY ---
 @st.cache_resource
@@ -85,6 +86,11 @@ def pobierz_arkusze():
     except WorksheetNotFound:
         arkusze["Stoly"] = None
         st.warning("⚠️ Brak zakładki 'Stoly' – plan stołów nie będzie działać.")
+    try:
+        arkusze["Harmonogram"] = sh.worksheet("Harmonogram")
+    except WorksheetNotFound:
+        arkusze["Harmonogram"] = None
+        st.warning("⚠️ Brak zakładki 'Harmonogram' – harmonogram dnia nie będzie dostępny.")
     return arkusze
 
 arkusze = pobierz_arkusze()
@@ -92,6 +98,7 @@ worksheet_goscie  = arkusze["Goscie"]
 worksheet_obsluga = arkusze["Obsluga"]
 worksheet_zadania = arkusze["Zadania"]
 worksheet_stoly   = arkusze["Stoly"]
+worksheet_harmonogram = arkusze.get("Harmonogram")   # nowe
 
 # --- FUNKCJE POMOCNICZE ---
 def pobierz_dane(_worksheet):
@@ -155,9 +162,23 @@ def load_stoly():
     df = df.fillna("")
     return df
 
+def load_harmonogram():   # nowe
+    if worksheet_harmonogram is None:
+        return pd.DataFrame(columns=KOLUMNY_HARMONOGRAM)
+    df = pobierz_dane(worksheet_harmonogram)
+    if df.empty:
+        df = pd.DataFrame(columns=KOLUMNY_HARMONOGRAM)
+    # Upewniamy się, że kolumny istnieją
+    for col in KOLUMNY_HARMONOGRAM:
+        if col not in df.columns:
+            df[col] = ""
+    df = df.fillna("")
+    df["Godzina"] = df["Godzina"].astype(str)
+    return df
+
 # --- UI APLIKACJI ---
 st.title("💍 Menadżer Ślubny")
-tab1, tab2, tab3, tab4 = st.tabs(["👥 Lista Gości", "🎧 Organizacja", "✅ Lista Zadań", "🍽️ Rozplanowanie Stołów"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["👥 Lista Gości", "🎧 Organizacja", "✅ Lista Zadań", "🍽️ Rozplanowanie Stołów", "⏰ Harmonogram Dnia"])
 
 # ==========================
 # ZAKŁADKA 1: GOŚCIE
@@ -290,7 +311,7 @@ with tab1:
         k3.markdown(f'<div style="{card_style}"><div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Potwierdzone przybycia</div><div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{potwierdzone}</div></div>', unsafe_allow_html=True)
 
 # ==========================
-# ZAKŁADKA 2: ORGANIZACJA (w pełni edytowalna tabela)
+# ZAKŁADKA 2: ORGANIZACJA
 # ==========================
 with tab2:
     st.header("🎧 Organizacja i Budżet")
@@ -490,7 +511,6 @@ with tab2:
             st.write("---")
             st.write("**Udział procentowy kategorii**")
             
-            # Altair pie chart z tooltipami
             chart_pie_cat = alt.Chart(grp_cat).mark_arc(innerRadius=50).encode(
                 theta=alt.Theta(field="Koszt", type="quantitative"),
                 color=alt.Color(field="Kategoria", type="nominal", legend=alt.Legend(title="Kategoria")),
@@ -748,3 +768,83 @@ with tab4:
                 st.cache_data.clear()
                 st.warning("Usunięto stół!")
                 st.rerun()
+
+# ==========================
+# ZAKŁADKA 5: HARMONOGRAM DNIA (NOWA)
+# ==========================
+with tab5:
+    st.header("⏰ Harmonogram Dnia Ślubu (minuta po minucie)")
+
+    if "df_harmonogram" not in st.session_state:
+        st.session_state["df_harmonogram"] = load_harmonogram()
+    df_harm = st.session_state["df_harmonogram"]
+
+    def dodaj_wydarzenie():
+        godz = st.session_state.get("harm_godz", "")
+        czyn = st.session_state.get("harm_czyn", "")
+        uwagi = st.session_state.get("harm_uwagi", "")
+        if godz and czyn:
+            nowy = [godz, czyn, uwagi]
+            df = st.session_state["df_harmonogram"].copy()
+            nowy_dict = dict(zip(KOLUMNY_HARMONOGRAM, nowy))
+            df = pd.concat([df, pd.DataFrame([nowy_dict])], ignore_index=True)
+            st.session_state["df_harmonogram"] = df
+
+            # Zapis do arkusza
+            w_arkusz = nowy.copy()
+            zapisz_nowy_wiersz(worksheet_harmonogram, w_arkusz)
+
+            st.toast(f"✅ Dodano: {godz} – {czyn}")
+            st.session_state["harm_godz"] = ""
+            st.session_state["harm_czyn"] = ""
+            st.session_state["harm_uwagi"] = ""
+        else:
+            st.warning("Wpisz godzinę i czynność!")
+
+    with st.expander("➕ Dodaj nowe wydarzenie", expanded=False):
+        c1, c2, c3 = st.columns([1,2,2])
+        with c1:
+            st.text_input("Godzina (np. 16:30)", key="harm_godz", placeholder="HH:MM")
+        with c2:
+            st.text_input("Czynność", key="harm_czyn", placeholder="np. Pierwszy taniec")
+        with c3:
+            st.text_input("Uwagi (opcjonalnie)", key="harm_uwagi", placeholder="dla kogo, gdzie...")
+        st.button("Dodaj do harmonogramu", on_click=dodaj_wydarzenie, key="btn_harm")
+
+    st.write("---")
+    st.subheader(f"📅 Harmonogram ({len(df_harm)} pozycji)")
+
+    # Sortowanie po godzinie (próbujemy skonwertować na czas, w razie błędu sortujemy alfabetycznie)
+    df_disp_harm = df_harm.copy()
+    try:
+        df_disp_harm["czas_sort"] = pd.to_datetime(df_disp_harm["Godzina"], format="%H:%M", errors='coerce')
+        df_disp_harm = df_disp_harm.sort_values("czas_sort").drop(columns=["czas_sort"])
+    except:
+        df_disp_harm = df_disp_harm.sort_values("Godzina")
+
+    edited_harm = st.data_editor(
+        df_disp_harm,
+        num_rows="dynamic",
+        column_config={
+            "Godzina": st.column_config.TextColumn("Godzina", required=True, width="small"),
+            "Czynność": st.column_config.TextColumn("Czynność", required=True, width="large"),
+            "Uwagi": st.column_config.TextColumn("Uwagi", width="large")
+        },
+        use_container_width=True,
+        hide_index=True,
+        key="editor_harm"
+    )
+
+    if st.button("💾 Zapisz harmonogram", key="save_harm"):
+        to_save = edited_harm.copy()
+        to_save = to_save[to_save["Godzina"].str.strip() != ""]
+        to_save = to_save[to_save["Czynność"].str.strip() != ""]
+        to_save = to_save.fillna("")
+
+        # Zapisz do arkusza
+        aktualizuj_caly_arkusz(worksheet_harmonogram, to_save)
+
+        # Aktualizacja session_state
+        st.session_state["df_harmonogram"] = to_save
+        st.success("Zapisano harmonogram!")
+        st.rerun()
