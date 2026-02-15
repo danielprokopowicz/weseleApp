@@ -11,7 +11,7 @@ from fpdf import FPDF
 import io                     
 
 # --- STAŁA DATA ŚLUBU (możesz zmienić) ---
-DATA_SLUBU = date(2027, 13, 07)   # <-- wpisz swoją datę
+DATA_SLUBU = date(2027, 13, 7)   # <-- wpisz swoją datę
 
 # --- STYLIZACJA CSS ---
 def local_css():
