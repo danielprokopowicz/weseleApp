@@ -400,7 +400,7 @@ with tab1:
             "Imie_Nazwisko": st.column_config.TextColumn("Imię i Nazwisko", required=True),
             "Imie_Osoby_Tow": st.column_config.TextColumn("Info (+1) / Powiązanie", width="large"),
             "Zaproszenie_Wyslane": st.column_config.CheckboxColumn("✉️ Wysłane Zaproszenie", default=False),
-            "RSVP": st.column_config.CheckboxColumn("✅ Potwierdzone Przybycie", default=False)
+            "RSVP": st.column_config.CheckboxColumn("✅ Potwierdzone Przybycie", default=False),
             "Dieta": st.column_config.SelectboxColumn("Dieta", options=["", "Mięsna", "Wegetariańska", "Wegańska", "Bezglutenowa", "Inna"], required=False)
         },
         use_container_width=True,
