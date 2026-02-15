@@ -997,7 +997,7 @@ with tab5:
 # ZAKŁADKA 6: MENU I DIETY
 # ==========================
 with tab6:
-    st.header("🍽️ Zarządzanie menu i dietami")
+    st.header("🍽️ Zarządzanie dietami")
 
     if "df_goscie" not in st.session_state:
         st.session_state["df_goscie"] = load_goscie()
