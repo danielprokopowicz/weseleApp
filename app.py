@@ -42,6 +42,27 @@ def local_css():
         [data-testid="stMetricValue"] { color: #4CAF50 !important; }
         button[data-baseweb="tab"] { font-size: 18px !important; font-weight: 600 !important; }
         button[data-baseweb="tab"][aria-selected="true"] { color: white !important; }
+        @media only screen and (max-width: 600px) {
+            .block-container {
+                padding-left: 0.5rem !important;
+                padding-right: 0.5rem !important;
+            }
+            h1 { font-size: 1.8rem; }
+            h2 { font-size: 1.4rem; }
+            [data-testid="stMetric"] {
+                padding: 10px;
+            }
+            [data-testid="stMetricValue"] {
+                font-size: 24px !important;
+            }
+            button[data-baseweb="tab"] {
+                font-size: 14px !important;
+                padding: 4px 8px !important;
+            }
+            .stDataEditor {
+                font-size: 12px;
+            }
+        }
     </style>
     """, unsafe_allow_html=True)
 
@@ -134,6 +155,8 @@ def load_goscie():
     df = pobierz_dane(worksheet_goscie)
     if df.empty:
         df = pd.DataFrame(columns=KOLUMNY_GOSCIE)
+    if "Dieta" not in df.columns:
+        df["Dieta"] = ""
     df["RSVP"] = df["RSVP"].apply(lambda x: str(x).lower() in ["tak", "true", "1", "yes"])
     df["Zaproszenie_Wyslane"] = df["Zaproszenie_Wyslane"].apply(lambda x: str(x).lower() in ["tak", "true", "1", "yes"])
     df = df.fillna("")
@@ -281,7 +304,7 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
     # Zwracamy BytesIO zamiast surowych bajtów
     return BytesIO(pdf_bytes)
 # --- UI APLIKACJI ---
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["👥 Lista Gości", "🎧 Organizacja", "✅ Lista Zadań", "🍽️ Rozplanowanie Stołów", "⏰ Harmonogram Dnia"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["👥 Lista Gości", "🎧 Organizacja", "✅ Lista Zadań", "🍽️ Rozplanowanie Stołów", "⏰ Harmonogram Dnia", "🍽️ Menu i Diety"])
 
 # ==========================
 # ZAKŁADKA 1: GOŚCIE
@@ -378,6 +401,7 @@ with tab1:
             "Imie_Osoby_Tow": st.column_config.TextColumn("Info (+1) / Powiązanie", width="large"),
             "Zaproszenie_Wyslane": st.column_config.CheckboxColumn("✉️ Wysłane Zaproszenie", default=False),
             "RSVP": st.column_config.CheckboxColumn("✅ Potwierdzone Przybycie", default=False)
+            "Dieta": st.column_config.SelectboxColumn("Dieta", options=["", "Mięsna", "Wegetariańska", "Wegańska", "Bezglutenowa", "Inna"], required=False)
         },
         use_container_width=True,
         hide_index=True,
@@ -945,3 +969,87 @@ with tab5:
         st.session_state["df_harmonogram"] = to_save
         st.success("Zapisano harmonogram!")
         st.rerun()
+# ==========================
+# ZAKŁADKA 6: MENU I DIETY
+# ==========================
+with tab6:
+    st.header("🍽️ Zarządzanie menu i dietami")
+
+    if "df_goscie" not in st.session_state:
+        st.session_state["df_goscie"] = load_goscie()
+    df_goscie = st.session_state["df_goscie"]
+
+    # Filtruj tylko gości z potwierdzonym przybyciem (opcjonalnie)
+    potwierdzeni = df_goscie[df_goscie["RSVP"] == True].copy()
+    if potwierdzeni.empty:
+        st.info("Brak gości z potwierdzonym przybyciem.")
+    else:
+        st.write(f"**Liczba potwierdzonych gości:** {len(potwierdzeni)}")
+
+        # Edytor diet
+        edited_diety = st.data_editor(
+            potwierdzeni[["Imie_Nazwisko", "Dieta"]],
+            num_rows="fixed",
+            use_container_width=True,
+            hide_index=True,
+            key="editor_diety",
+            column_config={
+                "Imie_Nazwisko": st.column_config.TextColumn("Gość", disabled=True),
+                "Dieta": st.column_config.SelectboxColumn(
+                    "Opcja diety",
+                    options=["", "Mięsna", "Wegetariańska", "Wegańska", "Bezglutenowa", "Inna"],
+                    required=False
+                )
+            }
+        )
+
+        # Przycisk zapisu zmian do arkusza
+        if st.button("💾 Zapisz diety", key="save_diety"):
+            # Zaktualizuj oryginalny DataFrame
+            df_all = st.session_state["df_goscie"].copy()
+            for index, row in edited_diety.iterrows():
+                mask = df_all["Imie_Nazwisko"] == row["Imie_Nazwisko"]
+                df_all.loc[mask, "Dieta"] = row["Dieta"]
+            st.session_state["df_goscie"] = df_all
+
+            # Zapisz do arkusza (całość)
+            df_arkusz = df_all.copy()
+            df_arkusz["RSVP"] = df_arkusz["RSVP"].apply(lambda x: "Tak" if x else "Nie")
+            df_arkusz["Zaproszenie_Wyslane"] = df_arkusz["Zaproszenie_Wyslane"].apply(lambda x: "Tak" if x else "Nie")
+            df_arkusz = df_arkusz.fillna("")
+            aktualizuj_caly_arkusz(worksheet_goscie, df_arkusz)
+
+            st.success("Diety zapisane!")
+            st.rerun()
+
+        # Podsumowanie dla cateringu
+        st.write("---")
+        st.subheader("📊 Podsumowanie diet (potwierdzeni goście)")
+
+        dieta_counts = edited_diety["Dieta"].value_counts().reset_index()
+        dieta_counts.columns = ["Opcja", "Liczba"]
+
+        # Wyświetl w ładnej tabelce
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.dataframe(dieta_counts, hide_index=True, use_container_width=True)
+        with col2:
+            # Prosty wykres kołowy Altair
+            if not dieta_counts.empty:
+                chart = alt.Chart(dieta_counts).mark_arc(innerRadius=30).encode(
+                    theta=alt.Theta(field="Liczba", type="quantitative"),
+                    color=alt.Color(field="Opcja", type="nominal"),
+                    tooltip=["Opcja", "Liczba"]
+                ).properties(width=250, height=250).interactive()
+                st.altair_chart(chart, use_container_width=True)
+
+        # Eksport do pliku dla kuchni
+        st.write("---")
+        if st.button("📄 Pobierz listę diet (CSV)"):
+            csv = dieta_counts.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Pobierz CSV",
+                data=csv,
+                file_name="podsumowanie_diet.csv",
+                mime="text/csv"
+            )
