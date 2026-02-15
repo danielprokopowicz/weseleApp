@@ -191,9 +191,9 @@ def load_harmonogram():
 
 # --- FUNKCJA GENERUJĄCA PDF ---
 def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
-    from fpdf.fonts import DejaVu   # dostępne od wersji 2.5.3
+    # Ładujemy czcionkę DejaVu z pliku .ttf znajdującego się w folderze 'fonts'
     pdf = FPDF()
-    pdf.add_font("DejaVu", "", DejaVu.ttf())
+    pdf.add_font("DejaVu", "", "fonts/DejaVuSans.ttf")
     pdf.set_font("DejaVu", size=12)
     pdf.add_page()
 
