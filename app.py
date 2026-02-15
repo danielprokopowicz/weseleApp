@@ -193,6 +193,7 @@ def load_harmonogram():
 def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
     import os
     import unicodedata
+    from io import BytesIO
 
     def usun_polskie_znaki(tekst):
         return ''.join(
@@ -278,7 +279,9 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
     pdf_bytes = pdf.output()
     if isinstance(pdf_bytes, str):
         pdf_bytes = pdf_bytes.encode('utf-8')
-    return pdf_bytes
+    
+    # Zwracamy BytesIO zamiast surowych bajtów
+    return BytesIO(pdf_bytes)
 # --- UI APLIKACJI ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["👥 Lista Gości", "🎧 Organizacja", "✅ Lista Zadań", "🍽️ Rozplanowanie Stołów", "⏰ Harmonogram Dnia"])
 
@@ -412,16 +415,16 @@ with tab1:
     # --- Generator PDF ---
     st.write("---")
     st.subheader("📄 Eksport do PDF")
-    if st.button("Generuj PDF z podsumowaniem"):
+    if st.button("Generuj PDF"):
         goscie_df = st.session_state.get("df_goscie", pd.DataFrame())
         stoly_df = st.session_state.get("df_stoly", pd.DataFrame())
         harmonogram_df = st.session_state.get("df_harmonogram", pd.DataFrame())
         
-        pdf_bytes = generuj_pdf(goscie_df, stoly_df, harmonogram_df)
+        pdf_buffer = generuj_pdf(goscie_df, stoly_df, harmonogram_df)
         
         st.download_button(
             label="📥 Pobierz PDF",
-            data=pdf_bytes,
+            data=pdf_buffer,
             file_name="podsumowanie_wesela.pdf",
             mime="application/pdf"
         )
