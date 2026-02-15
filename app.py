@@ -191,7 +191,7 @@ def load_harmonogram():
 
 # --- FUNKCJA GENERUJĄCA PDF ---
 def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
-    from fpdf.fonts import DejaVu
+    from fpdf.fonts import DejaVu   # dostępne po aktualizacji
     pdf = FPDF()
     pdf.add_font("DejaVu", "", DejaVu.ttf())
     pdf.set_font("DejaVu", size=12)
