@@ -258,6 +258,32 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
         pdf.cell(200, 8, txt=clean_text("Brak gości"), ln=1)
     pdf.ln(5)
 
+    # --- Podsumowanie diet (tylko potwierdzeni goście) ---
+    if not goscie_df.empty and 'Dieta' in goscie_df.columns:
+        potwierdzeni = goscie_df[goscie_df['RSVP'] == True]
+        if not potwierdzeni.empty:
+            dieta_counts = potwierdzeni['Dieta'].value_counts().reset_index()
+            dieta_counts.columns = ['Opcja', 'Liczba']
+            # Filtrujemy puste diety (jeśli ktoś nie wybrał)
+            dieta_counts = dieta_counts[dieta_counts['Opcja'] != ""]
+            
+            if not dieta_counts.empty:
+                pdf.set_font(font_family, size=14)
+                pdf.cell(200, 10, txt=clean_text("Podsumowanie diet (potwierdzeni)"), ln=1)
+                pdf.set_font(font_family, size=10)
+                for _, row in dieta_counts.iterrows():
+                    linia = f"{row['Opcja']}: {row['Liczba']}"
+                    pdf.cell(200, 8, txt=clean_text(linia), ln=1)
+                pdf.ln(5)
+        else:
+            pdf.set_font(font_family, size=12)
+            pdf.cell(200, 8, txt=clean_text("Brak potwierdzonych gości – brak danych o dietach"), ln=1)
+            pdf.ln(5)
+    else:
+        pdf.set_font(font_family, size=12)
+        pdf.cell(200, 8, txt=clean_text("Brak danych o dietach"), ln=1)
+        pdf.ln(5)
+
     # --- Rozsadzenie przy stołach ---
     pdf.set_font(font_family, size=14)
     pdf.cell(200, 10, txt=clean_text("Rozsadzenie przy stołach"), ln=1)
