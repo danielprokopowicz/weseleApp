@@ -7,6 +7,11 @@ import matplotlib.pyplot as plt
 import altair as alt
 import numpy as np
 from gspread.exceptions import WorksheetNotFound
+from fpdf import FPDF          # <-- nowy import
+import io                      # <-- nowy import
+
+# --- STAŁA DATA ŚLUBU (możesz zmienić) ---
+DATA_SLUBU = date(2025, 8, 16)   # <-- wpisz swoją datę
 
 # --- STYLIZACJA CSS ---
 def local_css():
@@ -44,12 +49,21 @@ def local_css():
 st.set_page_config(page_title="Menadżer Ślubny", page_icon="💍", layout="wide")
 local_css()
 
+# --- LICZNIK (wyświetlany pod tytułem) ---
+st.title("💍 Menadżer Ślubny")
+dzisiaj = date.today()
+if dzisiaj <= DATA_SLUBU:
+    pozostalo = (DATA_SLUBU - dzisiaj).days
+    st.info(f"💍 **Do ślubu pozostało {pozostalo} dni!**")
+else:
+    st.success("🎉 Wesele już było! Czas na miesiąc miodowy!")
+
 # --- STAŁE ---
 KOLUMNY_GOSCIE   = ["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP", "Zaproszenie_Wyslane"]
 KOLUMNY_OBSLUGA  = ["Kategoria", "Rola", "Informacje", "Koszt", "Czy_Oplacone", "Zaliczka", "Czy_Zaliczka_Oplacona"]
 KOLUMNY_ZADANIA  = ["Zadanie", "Termin", "Czy_Zrobione"]
 KOLUMNY_STOLY    = ["Numer", "Ksztalt", "Liczba_Miejsc", "Goscie_Lista"]
-KOLUMNY_HARMONOGRAM = ["Godzina", "Czynność", "Uwagi"]   # nowe
+KOLUMNY_HARMONOGRAM = ["Godzina", "Czynność", "Uwagi"]
 
 # --- POŁĄCZENIE Z GOOGLE SHEETS I CACHE'OWANIE ARKUSZY ---
 @st.cache_resource
@@ -98,7 +112,7 @@ worksheet_goscie  = arkusze["Goscie"]
 worksheet_obsluga = arkusze["Obsluga"]
 worksheet_zadania = arkusze["Zadania"]
 worksheet_stoly   = arkusze["Stoly"]
-worksheet_harmonogram = arkusze.get("Harmonogram")   # nowe
+worksheet_harmonogram = arkusze.get("Harmonogram")
 
 # --- FUNKCJE POMOCNICZE ---
 def pobierz_dane(_worksheet):
@@ -162,13 +176,12 @@ def load_stoly():
     df = df.fillna("")
     return df
 
-def load_harmonogram():   # nowe
+def load_harmonogram():
     if worksheet_harmonogram is None:
         return pd.DataFrame(columns=KOLUMNY_HARMONOGRAM)
     df = pobierz_dane(worksheet_harmonogram)
     if df.empty:
         df = pd.DataFrame(columns=KOLUMNY_HARMONOGRAM)
-    # Upewniamy się, że kolumny istnieją
     for col in KOLUMNY_HARMONOGRAM:
         if col not in df.columns:
             df[col] = ""
@@ -176,8 +189,70 @@ def load_harmonogram():   # nowe
     df["Godzina"] = df["Godzina"].astype(str)
     return df
 
+# --- FUNKCJA GENERUJĄCA PDF ---
+def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    
+    # Tytuł
+    pdf.cell(200, 10, txt="Podsumowanie wesela", ln=1, align='C')
+    pdf.ln(10)
+    
+    # --- Lista gości ---
+    pdf.set_font("Arial", 'B', size=14)
+    pdf.cell(200, 10, txt="Lista gości", ln=1)
+    pdf.set_font("Arial", size=10)
+    if not goscie_df.empty:
+        goscie_list = goscie_df[['Imie_Nazwisko', 'RSVP', 'Zaproszenie_Wyslane']].copy()
+        goscie_list['RSVP'] = goscie_list['RSVP'].apply(lambda x: 'Tak' if x else 'Nie')
+        goscie_list['Zaproszenie_Wyslane'] = goscie_list['Zaproszenie_Wyslane'].apply(lambda x: 'Tak' if x else 'Nie')
+        for _, row in goscie_list.iterrows():
+            pdf.cell(200, 8, txt=f"{row['Imie_Nazwisko']} - RSVP: {row['RSVP']}, Zaproszenie: {row['Zaproszenie_Wyslane']}", ln=1)
+    else:
+        pdf.cell(200, 8, txt="Brak gości", ln=1)
+    pdf.ln(5)
+    
+    # --- Rozsadzenie przy stołach ---
+    pdf.set_font("Arial", 'B', size=14)
+    pdf.cell(200, 10, txt="Rozsadzenie przy stołach", ln=1)
+    pdf.set_font("Arial", size=10)
+    if not stoly_df.empty:
+        for _, row in stoly_df.iterrows():
+            pdf.cell(200, 8, txt=f"Stół {row['Numer']} ({row['Ksztalt']}, {row['Liczba_Miejsc']} miejsc):", ln=1)
+            goscie_przy_stole = row['Goscie_Lista'].split(';') if row['Goscie_Lista'] else []
+            goscie_przy_stole = [g for g in goscie_przy_stole if g.strip()]
+            if goscie_przy_stole:
+                for gosc in goscie_przy_stole:
+                    pdf.cell(200, 6, txt=f"   - {gosc}", ln=1)
+            else:
+                pdf.cell(200, 6, txt="   (brak gości)", ln=1)
+    else:
+        pdf.cell(200, 8, txt="Brak danych o stołach", ln=1)
+    pdf.ln(5)
+    
+    # --- Harmonogram dnia ---
+    pdf.set_font("Arial", 'B', size=14)
+    pdf.cell(200, 10, txt="Harmonogram dnia", ln=1)
+    pdf.set_font("Arial", size=10)
+    if not harmonogram_df.empty:
+        harm_sorted = harmonogram_df.copy()
+        try:
+            harm_sorted['czas'] = pd.to_datetime(harm_sorted['Godzina'], format='%H:%M', errors='coerce')
+            harm_sorted = harm_sorted.sort_values('czas').drop(columns=['czas'])
+        except:
+            harm_sorted = harm_sorted.sort_values('Godzina')
+        for _, row in harm_sorted.iterrows():
+            txt = f"{row['Godzina']} - {row['Czynność']}"
+            if row['Uwagi']:
+                txt += f" ({row['Uwagi']})"
+            pdf.cell(200, 8, txt=txt, ln=1)
+    else:
+        pdf.cell(200, 8, txt="Brak harmonogramu", ln=1)
+    
+    return pdf.output(dest='S').encode('latin1')
+
 # --- UI APLIKACJI ---
-st.title("💍 Menadżer Ślubny")
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["👥 Lista Gości", "🎧 Organizacja", "✅ Lista Zadań", "🍽️ Rozplanowanie Stołów", "⏰ Harmonogram Dnia"])
 
 # ==========================
@@ -203,14 +278,12 @@ with tab1:
             if czy_z_osoba and imie_partnera:
                 nowe_wiersze.append([imie_partnera, f"(Osoba tow. dla: {imie_glowne})", czy_rsvp, czy_zaproszenie])
 
-            # Aktualizacja session_state
             df = st.session_state["df_goscie"].copy()
             for w in nowe_wiersze:
                 nowy = dict(zip(KOLUMNY_GOSCIE, w))
                 df = pd.concat([df, pd.DataFrame([nowy])], ignore_index=True)
             st.session_state["df_goscie"] = df
 
-            # Zapis do arkusza
             for w in nowe_wiersze:
                 w_arkusz = w.copy()
                 w_arkusz[2] = "Tak" if w_arkusz[2] else "Nie"
@@ -218,7 +291,6 @@ with tab1:
                 zapisz_nowy_wiersz(worksheet_goscie, w_arkusz)
 
             st.toast(f"✅ Dodano: {imie_glowne}")
-            # Czyszczenie pól
             st.session_state["input_imie"] = ""
             st.session_state["input_partner"] = ""
             st.session_state["check_rsvp"] = False
@@ -310,6 +382,23 @@ with tab1:
         k2.markdown(f'<div style="{card_style}"><div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Wysłane zaproszenia</div><div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{zaproszone}</div></div>', unsafe_allow_html=True)
         k3.markdown(f'<div style="{card_style}"><div style="color: #F5F5DC; font-size: 14px; margin-bottom: 5px;">Potwierdzone przybycia</div><div style="color: #4CAF50; font-size: 30px; font-weight: 700;">{potwierdzone}</div></div>', unsafe_allow_html=True)
 
+    # --- Generator PDF ---
+    st.write("---")
+    st.subheader("📄 Eksport do PDF")
+    if st.button("Generuj PDF z podsumowaniem"):
+        goscie_df = st.session_state.get("df_goscie", pd.DataFrame())
+        stoly_df = st.session_state.get("df_stoly", pd.DataFrame())
+        harmonogram_df = st.session_state.get("df_harmonogram", pd.DataFrame())
+        
+        pdf_bytes = generuj_pdf(goscie_df, stoly_df, harmonogram_df)
+        
+        st.download_button(
+            label="📥 Pobierz PDF",
+            data=pdf_bytes,
+            file_name="podsumowanie_wesela.pdf",
+            mime="application/pdf"
+        )
+
 # ==========================
 # ZAKŁADKA 2: ORGANIZACJA
 # ==========================
@@ -320,7 +409,6 @@ with tab2:
         st.session_state["df_obsluga"] = load_obsluga()
     df_obsluga = st.session_state["df_obsluga"]
 
-    # Lista kategorii do selectboksów
     base_cats = ["Inne"]
     if not df_obsluga.empty:
         curr = df_obsluga["Kategoria"].unique().tolist()
@@ -342,20 +430,17 @@ with tab2:
 
         if r and fin_cat:
             nowy_wiersz = [fin_cat, r, i, k, op, z, z_op]
-            # Aktualizacja session_state
             df = st.session_state["df_obsluga"].copy()
             nowy = dict(zip(KOLUMNY_OBSLUGA, nowy_wiersz))
             df = pd.concat([df, pd.DataFrame([nowy])], ignore_index=True)
             st.session_state["df_obsluga"] = df
 
-            # Zapis do arkusza
             w_arkusz = nowy_wiersz.copy()
             w_arkusz[4] = "Tak" if w_arkusz[4] else "Nie"
             w_arkusz[6] = "Tak" if w_arkusz[6] else "Nie"
             zapisz_nowy_wiersz(worksheet_obsluga, w_arkusz)
 
             st.toast(f"💰 Dodano: {r}")
-            # Czyszczenie pól
             st.session_state["org_rola"] = ""
             st.session_state["org_info"] = ""
             st.session_state["org_koszt"] = 0.0
@@ -387,13 +472,11 @@ with tab2:
     st.write("---")
     st.subheader(f"💸 Wydatki ({len(df_obsluga)})")
 
-    # Filtrowanie
     fil = st.multiselect("🔍 Filtruj:", all_cats)
     df_disp = df_obsluga.copy()
     if fil:
         df_disp = df_disp[df_disp["Kategoria"].isin(fil)]
 
-    # Sortowanie
     c1, c2 = st.columns([1,3])
     with c1:
         st.write("Sortuj:")
@@ -406,7 +489,6 @@ with tab2:
     elif s == "✅ Opłacone":
         df_disp = df_disp.sort_values("Czy_Oplacone", ascending=False)
 
-    # EDYTOR DANYCH – pełna edycja, dynamiczne wiersze
     edited_org = st.data_editor(
         df_disp,
         num_rows="dynamic",
@@ -429,14 +511,12 @@ with tab2:
         to_save = to_save[to_save["Rola"].str.strip() != ""]
         to_save = to_save.fillna("")
         
-        # Konwersja bool -> "Tak"/"Nie" do arkusza
         df_arkusz = to_save.copy()
         df_arkusz["Czy_Oplacone"] = df_arkusz["Czy_Oplacone"].apply(lambda x: "Tak" if x else "Nie")
         df_arkusz["Czy_Zaliczka_Oplacona"] = df_arkusz["Czy_Zaliczka_Oplacona"].apply(lambda x: "Tak" if x else "Nie")
         
         aktualizuj_caly_arkusz(worksheet_obsluga, df_arkusz)
         
-        # Aktualizacja session_state (bool)
         to_save["Czy_Oplacone"] = to_save["Czy_Oplacone"].apply(lambda x: x == True)
         to_save["Czy_Zaliczka_Oplacona"] = to_save["Czy_Zaliczka_Oplacona"].apply(lambda x: x == True)
         to_save["Koszt"] = pd.to_numeric(to_save["Koszt"], errors='coerce').fillna(0.0)
@@ -446,7 +526,6 @@ with tab2:
         st.success("Zapisano!")
         st.rerun()
 
-    # --- PODSUMOWANIE FINANSOWE ---
     if not df_obsluga.empty:
         calc = df_obsluga.copy()
         calc["Koszt"] = pd.to_numeric(calc["Koszt"], errors='coerce').fillna(0.0)
@@ -470,7 +549,6 @@ with tab2:
         st.write("---")
         st.subheader("📊 Struktura Wydatków")
         
-        # --- WYKRES SŁUPKOWY: Kategorie ---
         grp_cat = calc.groupby("Kategoria")["Koszt"].sum().reset_index().sort_values("Koszt", ascending=False)
         grp_cat = grp_cat[grp_cat["Koszt"] > 0]
         if not grp_cat.empty:
@@ -483,13 +561,10 @@ with tab2:
             ).properties(height=300).interactive()
             st.altair_chart(chart_bar, use_container_width=True)
 
-        # --- WYKRES KOŁOWY: Role (z tooltipami) ---
         st.write("---")
         st.write("**Wydatki według roli**")
-        
         grp_role = calc.groupby("Rola")["Koszt"].sum().reset_index().sort_values("Koszt", ascending=False)
         grp_role = grp_role[grp_role["Koszt"] > 0]
-        
         if not grp_role.empty:
             chart_pie_role = alt.Chart(grp_role).mark_arc(innerRadius=50).encode(
                 theta=alt.Theta(field="Koszt", type="quantitative"),
@@ -498,19 +573,14 @@ with tab2:
                     alt.Tooltip("Rola:N", title="Rola"),
                     alt.Tooltip("Koszt:Q", title="Koszt", format=",.0f")
                 ]
-            ).properties(
-                width=400,
-                height=400
-            ).interactive()
+            ).properties(width=400, height=400).interactive()
             st.altair_chart(chart_pie_role, use_container_width=True)
         else:
             st.info("Brak danych do wyświetlenia wykresu dla ról.")
 
-        # --- WYKRES KOŁOWY: Kategorie (z tooltipami) ---
         if not grp_cat.empty:
             st.write("---")
             st.write("**Udział procentowy kategorii**")
-            
             chart_pie_cat = alt.Chart(grp_cat).mark_arc(innerRadius=50).encode(
                 theta=alt.Theta(field="Koszt", type="quantitative"),
                 color=alt.Color(field="Kategoria", type="nominal", legend=alt.Legend(title="Kategoria")),
@@ -518,11 +588,7 @@ with tab2:
                     alt.Tooltip("Kategoria:N", title="Kategoria"),
                     alt.Tooltip("Koszt:Q", title="Koszt", format=",.0f")
                 ]
-            ).properties(
-                width=400,
-                height=400
-            ).interactive()
-            
+            ).properties(width=400, height=400).interactive()
             st.altair_chart(chart_pie_cat, use_container_width=True)
     else:
         st.info("Dodaj koszty, aby zobaczyć podsumowanie i wykresy.")
@@ -708,7 +774,6 @@ with tab4:
                     st.success("Zapisano!")
                     st.rerun()
 
-            # Wizualizacja (skrócona dla przejrzystości)
             st.write("---")
             st.write(f"**Podgląd: {ksztalt_stolu} ({max_miejsc} os.)**")
             fig, ax = plt.subplots(figsize=(20, 16))
@@ -770,7 +835,7 @@ with tab4:
                 st.rerun()
 
 # ==========================
-# ZAKŁADKA 5: HARMONOGRAM DNIA (NOWA)
+# ZAKŁADKA 5: HARMONOGRAM DNIA
 # ==========================
 with tab5:
     st.header("⏰ Harmonogram Dnia Ślubu (minuta po minucie)")
@@ -790,7 +855,6 @@ with tab5:
             df = pd.concat([df, pd.DataFrame([nowy_dict])], ignore_index=True)
             st.session_state["df_harmonogram"] = df
 
-            # Zapis do arkusza
             w_arkusz = nowy.copy()
             zapisz_nowy_wiersz(worksheet_harmonogram, w_arkusz)
 
@@ -814,7 +878,6 @@ with tab5:
     st.write("---")
     st.subheader(f"📅 Harmonogram ({len(df_harm)} pozycji)")
 
-    # Sortowanie po godzinie (próbujemy skonwertować na czas, w razie błędu sortujemy alfabetycznie)
     df_disp_harm = df_harm.copy()
     try:
         df_disp_harm["czas_sort"] = pd.to_datetime(df_disp_harm["Godzina"], format="%H:%M", errors='coerce')
@@ -841,10 +904,7 @@ with tab5:
         to_save = to_save[to_save["Czynność"].str.strip() != ""]
         to_save = to_save.fillna("")
 
-        # Zapisz do arkusza
         aktualizuj_caly_arkusz(worksheet_harmonogram, to_save)
-
-        # Aktualizacja session_state
         st.session_state["df_harmonogram"] = to_save
         st.success("Zapisano harmonogram!")
         st.rerun()
