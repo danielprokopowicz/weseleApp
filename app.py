@@ -207,12 +207,13 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
 
     pdf.add_page()
 
-    # Tytuł
+    # Tytuł (większy rozmiar)
+    pdf.set_font(font_family, size=16)
     pdf.cell(200, 10, txt="Podsumowanie wesela", ln=1, align='C')
     pdf.ln(10)
 
     # --- Lista gości ---
-    pdf.set_font(font_family, 'B', size=14)
+    pdf.set_font(font_family, size=14)
     pdf.cell(200, 10, txt="Lista gości", ln=1)
     pdf.set_font(font_family, size=10)
     if not goscie_df.empty:
@@ -226,7 +227,7 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
     pdf.ln(5)
 
     # --- Rozsadzenie przy stołach ---
-    pdf.set_font(font_family, 'B', size=14)
+    pdf.set_font(font_family, size=14)
     pdf.cell(200, 10, txt="Rozsadzenie przy stołach", ln=1)
     pdf.set_font(font_family, size=10)
     if not stoly_df.empty:
@@ -244,7 +245,7 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
     pdf.ln(5)
 
     # --- Harmonogram dnia ---
-    pdf.set_font(font_family, 'B', size=14)
+    pdf.set_font(font_family, size=14)
     pdf.cell(200, 10, txt="Harmonogram dnia", ln=1)
     pdf.set_font(font_family, size=10)
     if not harmonogram_df.empty:
