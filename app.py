@@ -64,7 +64,7 @@ def local_css():
     """, unsafe_allow_html=True)
 
 # --- KONFIGURACJA STRONY ---
-st.set_page_config(page_title="Menadżer Ślubny", page_icon="💍", layout="wide")
+st.set_page_config(page_title="Menadżer Ślubny", page_icon="💍", layout="wide", initial_sidebar_state="expanded")
 local_css()
 
 # --- SIDEBAR Z DATĄ ŚLUBU ---
