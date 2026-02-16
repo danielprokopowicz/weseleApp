@@ -16,9 +16,7 @@ def local_css():
     <style>
         html, body, [class*="css"] { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
         .block-container { padding-top: 1rem !important; padding-bottom: 2rem !important; }
-        .stApp header [data-testid="stDecoration"] { display: none; }
-        .stApp header [data-testid="stStatusWidget"] { display: none; }
-        .stApp header [data-testid="stToolbar"] { display: none; }
+
         h1 { color: #8B4513; text-align: center; font-weight: 1000; margin-bottom: 0px; }
         h2 { color: #1B4D3E; border-bottom: 2px solid #FFFFFF; padding-bottom: 10px; }
         [data-testid="stMetric"] {
