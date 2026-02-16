@@ -57,10 +57,7 @@ def local_css():
                 font-size: 12px;
             }
         }
-        [data-testid="stSidebar"] {
-            margin-top: 0 !important;
-            height: 100vh !important;
-        }
+        .stApp header { min-height: 2rem; }
     </style>
     """, unsafe_allow_html=True)
 
