@@ -16,9 +16,9 @@ def local_css():
     <style>
         html, body, [class*="css"] { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
         .block-container { padding-top: 1rem !important; padding-bottom: 2rem !important; }
-        header .stDecoration {display: none;}
-        #MainMenu .stDecoration {display: none;}
-        footer .stDecoration {display: none;}
+        .stApp header [data-testid="stDecoration"] { display: none; }
+        .stApp header [data-testid="stStatusWidget"] { display: none; }
+        .stApp header [data-testid="stToolbar"] { display: none; }
         h1 { color: #8B4513; text-align: center; font-weight: 1000; margin-bottom: 0px; }
         h2 { color: #1B4D3E; border-bottom: 2px solid #FFFFFF; padding-bottom: 10px; }
         [data-testid="stMetric"] {
@@ -64,12 +64,26 @@ def local_css():
     """, unsafe_allow_html=True)
 
 # --- KONFIGURACJA STRONY ---
-st.set_page_config(page_title="Menadżer Ślubny", page_icon="💍", layout="wide")
+st.set_page_config(page_title="Menadżer Ślubny", page_icon="💍", layout="wide", initial_sidebar_state="expanded")
 local_css()
 
-# --- INICJALIZACJA DATY W SESSION STATE (ZABEZPIECZENIE PRZED KeyError) ---
+# --- WCZYTANIE DATY Z URL (jeśli istnieje) ---
+from datetime import datetime
+
+def pobierz_date_z_url():
+    """Zwraca datę z query_params lub domyślną."""
+    domyslna = date(2027, 7, 13)
+    params = st.query_params
+    if "data_slubu" in params:
+        try:
+            return datetime.strptime(params["data_slubu"][0], "%Y-%m-%d").date()
+        except:
+            return domyslna
+    return domyslna
+
+# Inicjalizacja daty w session_state (dla bieżącej sesji)
 if "data_slubu" not in st.session_state:
-    st.session_state["data_slubu"] = date(2027, 7, 13)  # wartość domyślna
+    st.session_state["data_slubu"] = pobierz_date_z_url()
 
 # --- SIDEBAR Z DATĄ ŚLUBU ---
 with st.sidebar:
@@ -77,19 +91,20 @@ with st.sidebar:
     nowa_data = st.date_input("Wybierz datę ślubu", value=st.session_state["data_slubu"])
     if nowa_data != st.session_state["data_slubu"]:
         st.session_state["data_slubu"] = nowa_data
+        # Zapis do URL (trwały)
+        st.query_params["data_slubu"] = nowa_data.strftime("%Y-%m-%d")
         st.rerun()
     st.caption(f"Obecna data: {st.session_state['data_slubu'].strftime('%d.%m.%Y')}")
 
 # --- LICZNIK (wyświetlany pod tytułem) ---
 st.title("💍 Menadżer Ślubny")
 dzisiaj = date.today()
-data_slubu = st.session_state["data_slubu"]  # już bezpiecznie istnieje
+data_slubu = st.session_state["data_slubu"]
 if dzisiaj <= data_slubu:
     pozostalo = (data_slubu - dzisiaj).days
     st.info(f"💍 **Do ślubu pozostało {pozostalo} dni!**")
 else:
     st.success("🎉 Wesele już było! Czas na miesiąc miodowy!")
-
 # --- STAŁE KOLUMN ---
 KOLUMNY_GOSCIE = ["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP", "Zaproszenie_Wyslane", "Dieta"]
 KOLUMNY_OBSLUGA  = ["Kategoria", "Rola", "Informacje", "Koszt", "Czy_Oplacone", "Zaliczka", "Czy_Zaliczka_Oplacona"]
