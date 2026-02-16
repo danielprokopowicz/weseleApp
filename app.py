@@ -57,16 +57,6 @@ def local_css():
                 font-size: 12px;
             }
         }
-        /* --- UKRYCIE NIE POTRZEBNYCH ELEMENTÓW W HEADERZE --- */
-        .stApp header [data-testid="stDecoration"] { display: none; }
-        .stApp header [data-testid="stStatusWidget"] { display: none; }
-        .stApp header [data-testid="stToolbar"] { display: none; }
-        
-        /* --- PRZYWRÓCENIE PRZYCISKU SIDEBARU (JEŚLI ZOSTAŁ UKRYTY) --- */
-        .stApp header [data-testid="stSidebarCollapseButton"] { display: flex !important; }
-        
-        /* --- DODATKOWE USTAWIENIE WYSOKOŚCI HEADERA (OPCJONALNIE) --- */
-        .stApp header { min-height: 2rem; }
     </style>
     """, unsafe_allow_html=True)
 
