@@ -15,7 +15,7 @@ def local_css():
     st.markdown("""
     <style>
         html, body, [class*="css"] { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-        .block-container { padding-top: 1rem !important; padding-bottom: 2rem !important; }
+        .block-container { padding-top: 4rem !important; padding-bottom: 2rem !important; }
         h1 { color: #8B4513; text-align: center; font-weight: 1000; margin-bottom: 0px; }
         h2 { color: #1B4D3E; border-bottom: 2px solid #FFFFFF; padding-bottom: 10px; }
         [data-testid="stMetric"] {
@@ -57,7 +57,6 @@ def local_css():
                 font-size: 12px;
             }
         }
-        .stApp header { min-height: 2rem; }
     </style>
     """, unsafe_allow_html=True)
 
