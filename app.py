@@ -67,18 +67,6 @@ def local_css():
 st.set_page_config(page_title="Menadżer Ślubny", page_icon="💍", layout="wide", initial_sidebar_state="expanded")
 local_css()
 
-# --- SIDEBAR Z DATĄ ŚLUBU ---
-with st.sidebar:
-    st.header("⚙️ Ustawienia")
-    # Inicjalizacja daty w session_state
-    if "data_slubu" not in st.session_state:
-        st.session_state["data_slubu"] = date(2027, 7, 13)  # wartość domyślna
-    nowa_data = st.date_input("Wybierz datę ślubu", value=st.session_state["data_slubu"])
-    if nowa_data != st.session_state["data_slubu"]:
-        st.session_state["data_slubu"] = nowa_data
-        st.rerun()
-    st.caption(f"Obecna data: {st.session_state['data_slubu'].strftime('%d.%m.%Y')}")
-
 # --- LICZNIK (wyświetlany pod tytułem) ---
 st.title("💍 Menadżer Ślubny")
 dzisiaj = date.today()
@@ -337,6 +325,19 @@ def generuj_pdf(goscie_df, stoly_df, harmonogram_df):
         pdf_bytes = pdf_bytes.encode('utf-8')
     return BytesIO(pdf_bytes)
 
+
+# --- SIDEBAR Z DATĄ ŚLUBU ---
+with st.sidebar:
+    st.header("⚙️ Ustawienia")
+    # Inicjalizacja daty w session_state
+    if "data_slubu" not in st.session_state:
+        st.session_state["data_slubu"] = date(2027, 7, 13)  # wartość domyślna
+    nowa_data = st.date_input("Wybierz datę ślubu", value=st.session_state["data_slubu"])
+    if nowa_data != st.session_state["data_slubu"]:
+        st.session_state["data_slubu"] = nowa_data
+        st.rerun()
+    st.caption(f"Obecna data: {st.session_state['data_slubu'].strftime('%d.%m.%Y')}")
+    
 # --- UI APLIKACJI ---
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["👥 Lista Gości", "🎧 Organizacja", "✅ Lista Zadań", "🍽️ Rozplanowanie Stołów", "⏰ Harmonogram Dnia", "🍽️ Diety"])
 
