@@ -60,6 +60,7 @@ def local_css():
         .stApp header [data-testid="stDecoration"] { display: none; }
         .stApp header [data-testid="stStatusWidget"] { display: none; }
         .stApp header [data-testid="stToolbar"] { display: none; }
+        .stApp header [data-testid="stSidebarCollapseButton"] { display: flex !important; }
     </style>
     """, unsafe_allow_html=True)
 
