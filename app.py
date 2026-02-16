@@ -57,14 +57,16 @@ def local_css():
                 font-size: 12px;
             }
         }
-        /* --- CAŁKOWITE UKRYCIE GÓRNEGO PASKA (HEADER) --- */
-        header { display: none !important; }
+        /* --- UKRYCIE NIE POTRZEBNYCH ELEMENTÓW W HEADERZE --- */
+        .stApp header [data-testid="stDecoration"] { display: none; }
+        .stApp header [data-testid="stStatusWidget"] { display: none; }
+        .stApp header [data-testid="stToolbar"] { display: none; }
         
-        /* --- DOSTOSOWANIE SIDEBARU, ABY ZAJMOWAŁ CAŁĄ WYSOKOŚĆ --- */
-        [data-testid="stSidebar"] {
-            margin-top: 0 !important;
-            height: 100vh !important;
-        }
+        /* --- PRZYWRÓCENIE PRZYCISKU SIDEBARU (JEŚLI ZOSTAŁ UKRYTY) --- */
+        .stApp header [data-testid="stSidebarCollapseButton"] { display: flex !important; }
+        
+        /* --- DODATKOWE USTAWIENIE WYSOKOŚCI HEADERA (OPCJONALNIE) --- */
+        .stApp header { min-height: 2rem; }
     </style>
     """, unsafe_allow_html=True)
 
