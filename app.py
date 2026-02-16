@@ -56,10 +56,10 @@ def local_css():
             .stDataEditor {
                 font-size: 12px;
             }
-            .stApp header [data-testid="stDecoration"] { display: none; }
-            .stApp header [data-testid="stStatusWidget"] { display: none; }
-            .stApp header [data-testid="stToolbar"] { display: none; }
         }
+        .stApp header [data-testid="stDecoration"] { display: none; }
+        .stApp header [data-testid="stStatusWidget"] { display: none; }
+        .stApp header [data-testid="stToolbar"] { display: none; }
     </style>
     """, unsafe_allow_html=True)
 
