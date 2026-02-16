@@ -57,9 +57,14 @@ def local_css():
                 font-size: 12px;
             }
         }
-        .stApp header [data-testid="stDecoration"] { display: none; }
-        .stApp header [data-testid="stStatusWidget"] { display: none; }
-        .stApp header [data-testid="stToolbar"] { display: none; }
+        /* --- CAŁKOWITE UKRYCIE GÓRNEGO PASKA (HEADER) --- */
+        header { display: none !important; }
+        
+        /* --- DOSTOSOWANIE SIDEBARU, ABY ZAJMOWAŁ CAŁĄ WYSOKOŚĆ --- */
+        [data-testid="stSidebar"] {
+            margin-top: 0 !important;
+            height: 100vh !important;
+        }
     </style>
     """, unsafe_allow_html=True)
 
