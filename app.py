@@ -16,7 +16,6 @@ def local_css():
     <style>
         html, body, [class*="css"] { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
         .block-container { padding-top: 1rem !important; padding-bottom: 2rem !important; }
-
         h1 { color: #8B4513; text-align: center; font-weight: 1000; margin-bottom: 0px; }
         h2 { color: #1B4D3E; border-bottom: 2px solid #FFFFFF; padding-bottom: 10px; }
         [data-testid="stMetric"] {
@@ -57,6 +56,9 @@ def local_css():
             .stDataEditor {
                 font-size: 12px;
             }
+            .stApp header [data-testid="stDecoration"] { display: none; }
+            .stApp header [data-testid="stStatusWidget"] { display: none; }
+            .stApp header [data-testid="stToolbar"] { display: none; }
         }
     </style>
     """, unsafe_allow_html=True)
@@ -74,7 +76,8 @@ def pobierz_date_z_url():
     params = st.query_params
     if "data_slubu" in params:
         try:
-            return datetime.strptime(params["data_slubu"][0], "%Y-%m-%d").date()
+            # params["data_slubu"] to string (nie lista)
+            return datetime.strptime(params["data_slubu"], "%Y-%m-%d").date()
         except:
             return domyslna
     return domyslna
@@ -103,6 +106,7 @@ if dzisiaj <= data_slubu:
     st.info(f"💍 **Do ślubu pozostało {pozostalo} dni!**")
 else:
     st.success("🎉 Wesele już było! Czas na miesiąc miodowy!")
+    
 # --- STAŁE KOLUMN ---
 KOLUMNY_GOSCIE = ["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP", "Zaproszenie_Wyslane", "Dieta"]
 KOLUMNY_OBSLUGA  = ["Kategoria", "Rola", "Informacje", "Koszt", "Czy_Oplacone", "Zaliczka", "Czy_Zaliczka_Oplacona"]
