@@ -98,6 +98,7 @@ if "data_slubu" not in st.session_state:
 # ==========================================================
 # 3. SIDEBAR I INTERFEJS WIZUALNY
 # ==========================================================
+# --- SIDEBAR Z DATĄ ŚLUBU ---
 with st.sidebar:
     st.header("⚙️ Ustawienia")
     nowa_data = st.date_input("Wybierz datę ślubu", value=st.session_state["data_slubu"])
@@ -105,14 +106,18 @@ with st.sidebar:
     if nowa_data != st.session_state["data_slubu"]:
         st.session_state["data_slubu"] = nowa_data
         
+        # Zapis do Google Sheets
         if worksheet_ustawienia is not None:
             try:
-                worksheet_ustawienia.update_acell(2, 1, nowa_data.strftime("%Y-%m-%d"))
-                st.toast("✅ Data ślubu została zapisana!")
+                # Używamy konkretnego adresu komórki 'A2'
+                worksheet_ustawienia.update_acell('A2', nowa_data.strftime("%Y-%m-%d"))
+                st.success("✅ Data ślubu została trwale zapisana!")
             except Exception as e:
-                st.error(f"Błąd zapisu daty: {e}")
+                # Jeśli coś pójdzie nie tak, błąd zostanie na ekranie
+                st.error(f"Błąd zapisu daty do arkusza: {e}")
                 
-        st.rerun()
+        # USUNĄŁEM st.rerun() - dzięki temu zobaczysz komunikat o sukcesie (lub błędzie),
+        # a reszta aplikacji i tak użyje nowej daty, bo znajduje się niżej w kodzie.
         
     st.caption(f"Obecna data: {st.session_state['data_slubu'].strftime('%d.%m.%Y')}")
 
