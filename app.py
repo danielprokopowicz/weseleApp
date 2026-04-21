@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-from datetime import date
+from datetime import date, datetime
 import matplotlib.pyplot as plt
 import altair as alt
 import numpy as np
@@ -18,45 +18,12 @@ def local_css():
         .block-container { padding-top: 4rem !important; padding-bottom: 2rem !important; }
         h1 { color: #8B4513; text-align: center; font-weight: 1000; margin-bottom: 0px; }
         h2 { color: #1B4D3E; border-bottom: 2px solid #FFFFFF; padding-bottom: 10px; }
-        [data-testid="stMetric"] {
-            background-color: #262730 !important;
-            border: 1px solid #444;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
-            text-align: left;
-            margin-bottom: 10px;
-        }
-        [data-testid="stDataEditor"] {
-            border: 1px solid #444 !important;
-            border-radius: 10px;
-            background-color: #262730;
-        }
+        [data-testid="stMetric"] { background-color: #262730 !important; border: 1px solid #444; padding: 15px; border-radius: 10px; box-shadow: 2px 2px 10px rgba(0,0,0,0.5); text-align: left; margin-bottom: 10px; }
+        [data-testid="stDataEditor"] { border: 1px solid #444 !important; border-radius: 10px; background-color: #262730; }
         [data-testid="stMetricLabel"] { color: white !important; }
         [data-testid="stMetricValue"] { color: #4CAF50 !important; }
         button[data-baseweb="tab"] { font-size: 18px !important; font-weight: 600 !important; }
         button[data-baseweb="tab"][aria-selected="true"] { color: white !important; }
-        @media only screen and (max-width: 600px) {
-            .block-container {
-                padding-left: 0.5rem !important;
-                padding-right: 0.5rem !important;
-            }
-            h1 { font-size: 1.8rem; }
-            h2 { font-size: 1.4rem; }
-            [data-testid="stMetric"] {
-                padding: 10px;
-            }
-            [data-testid="stMetricValue"] {
-                font-size: 24px !important;
-            }
-            button[data-baseweb="tab"] {
-                font-size: 14px !important;
-                padding: 4px 8px !important;
-            }
-            .stDataEditor {
-                font-size: 12px;
-            }
-        }
     </style>
     """, unsafe_allow_html=True)
 
@@ -64,31 +31,73 @@ def local_css():
 st.set_page_config(page_title="Menadżer Ślubny", page_icon="💍", layout="wide", initial_sidebar_state="expanded")
 local_css()
 
-# --- WCZYTANIE DATY Z URL (jeśli istnieje) ---
-from datetime import datetime
+# ==========================================================
+# 1. NAJPIERW POŁĄCZENIE Z GOOGLE SHEETS
+# ==========================================================
+@st.cache_resource
+def pobierz_arkusze():
+    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    creds_dict = dict(st.secrets["gcp_service_account"])
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+    client = gspread.authorize(creds)
 
-# --- WCZYTANIE DATY Z GOOGLE SHEETS ---
-from datetime import datetime
+    try:
+        sh = client.open("Wesele_Baza")
+    except Exception:
+        st.error("⚠️ Nie znaleziono arkusza 'Wesele_Baza'.")
+        st.stop()
 
+    arkusze = {}
+    try: arkusze["Goscie"] = sh.worksheet("Goscie")
+    except WorksheetNotFound: st.stop()
+    
+    try: arkusze["Obsluga"] = sh.worksheet("Obsluga")
+    except WorksheetNotFound: st.stop()
+    
+    try: arkusze["Zadania"] = sh.worksheet("Zadania")
+    except WorksheetNotFound: arkusze["Zadania"] = None
+    
+    try: arkusze["Stoly"] = sh.worksheet("Stoly")
+    except WorksheetNotFound: arkusze["Stoly"] = None
+    
+    try: arkusze["Harmonogram"] = sh.worksheet("Harmonogram")
+    except WorksheetNotFound: arkusze["Harmonogram"] = None
+    
+    try: arkusze["Ustawienia"] = sh.worksheet("Ustawienia")
+    except WorksheetNotFound: arkusze["Ustawienia"] = None
+    
+    return arkusze
+
+arkusze = pobierz_arkusze()
+worksheet_goscie  = arkusze["Goscie"]
+worksheet_obsluga = arkusze["Obsluga"]
+worksheet_zadania = arkusze["Zadania"]
+worksheet_stoly   = arkusze["Stoly"]
+worksheet_harmonogram = arkusze.get("Harmonogram")
+worksheet_ustawienia = arkusze.get("Ustawienia") # <-- TERAZ ZMIENNA ISTNIEJE
+
+
+# ==========================================================
+# 2. POTEM POBIERANIE DATY (bo zmienna arkusza już istnieje)
+# ==========================================================
 def pobierz_date_z_arkusza():
     domyslna = date(2027, 7, 13)
     if worksheet_ustawienia is not None:
         try:
-            # Pobieramy wartość z komórki A2
             data_str = worksheet_ustawienia.acell('A2').value
             if data_str:
                 return datetime.strptime(data_str, "%Y-%m-%d").date()
         except Exception as e:
-            # W razie błędu (np. pustej komórki) zwracamy datę domyślną
             return domyslna
     return domyslna
 
-# Inicjalizacja daty w session_state (dla bieżącej sesji)
 if "data_slubu" not in st.session_state:
     st.session_state["data_slubu"] = pobierz_date_z_arkusza()
 
-# --- SIDEBAR Z DATĄ ŚLUBU ---
-# --- SIDEBAR Z DATĄ ŚLUBU ---
+
+# ==========================================================
+# 3. SIDEBAR I INTERFEJS WIZUALNY
+# ==========================================================
 with st.sidebar:
     st.header("⚙️ Ustawienia")
     nowa_data = st.date_input("Wybierz datę ślubu", value=st.session_state["data_slubu"])
@@ -96,7 +105,6 @@ with st.sidebar:
     if nowa_data != st.session_state["data_slubu"]:
         st.session_state["data_slubu"] = nowa_data
         
-        # Zapis do Google Sheets (wiersz 2, kolumna 1 - czyli A2)
         if worksheet_ustawienia is not None:
             try:
                 worksheet_ustawienia.update_acell(2, 1, nowa_data.strftime("%Y-%m-%d"))
@@ -108,6 +116,7 @@ with st.sidebar:
         
     st.caption(f"Obecna data: {st.session_state['data_slubu'].strftime('%d.%m.%Y')}")
 
+
 # --- LICZNIK (wyświetlany pod tytułem) ---
 st.title("💍 Menadżer Ślubny")
 dzisiaj = date.today()
@@ -117,6 +126,7 @@ if dzisiaj <= data_slubu:
     st.info(f"💍 **Do ślubu pozostało {pozostalo} dni!**")
 else:
     st.success("🎉 Wesele już było! Czas na miesiąc miodowy!")
+    
     
 # --- STAŁE KOLUMN ---
 KOLUMNY_GOSCIE = ["Imie_Nazwisko", "Imie_Osoby_Tow", "RSVP", "Zaproszenie_Wyslane", "Dieta"]
