@@ -67,31 +67,45 @@ local_css()
 # --- WCZYTANIE DATY Z URL (jeśli istnieje) ---
 from datetime import datetime
 
-def pobierz_date_z_url():
-    """Zwraca datę z query_params lub domyślną."""
+# --- WCZYTANIE DATY Z GOOGLE SHEETS ---
+from datetime import datetime
+
+def pobierz_date_z_arkusza():
     domyslna = date(2027, 7, 13)
-    params = st.query_params
-    if "data_slubu" in params:
+    if worksheet_ustawienia is not None:
         try:
-            # params["data_slubu"] to string (nie lista)
-            return datetime.strptime(params["data_slubu"], "%Y-%m-%d").date()
-        except:
+            # Pobieramy wartość z komórki A2
+            data_str = worksheet_ustawienia.acell('A2').value
+            if data_str:
+                return datetime.strptime(data_str, "%Y-%m-%d").date()
+        except Exception as e:
+            # W razie błędu (np. pustej komórki) zwracamy datę domyślną
             return domyslna
     return domyslna
 
 # Inicjalizacja daty w session_state (dla bieżącej sesji)
 if "data_slubu" not in st.session_state:
-    st.session_state["data_slubu"] = pobierz_date_z_url()
+    st.session_state["data_slubu"] = pobierz_date_z_arkusza()
 
+# --- SIDEBAR Z DATĄ ŚLUBU ---
 # --- SIDEBAR Z DATĄ ŚLUBU ---
 with st.sidebar:
     st.header("⚙️ Ustawienia")
     nowa_data = st.date_input("Wybierz datę ślubu", value=st.session_state["data_slubu"])
+    
     if nowa_data != st.session_state["data_slubu"]:
         st.session_state["data_slubu"] = nowa_data
-        # Zapis do URL (trwały)
-        st.query_params["data_slubu"] = nowa_data.strftime("%Y-%m-%d")
+        
+        # Zapis do Google Sheets (wiersz 2, kolumna 1 - czyli A2)
+        if worksheet_ustawienia is not None:
+            try:
+                worksheet_ustawienia.update_acell(2, 1, nowa_data.strftime("%Y-%m-%d"))
+                st.toast("✅ Data ślubu została zapisana!")
+            except Exception as e:
+                st.error(f"Błąd zapisu daty: {e}")
+                
         st.rerun()
+        
     st.caption(f"Obecna data: {st.session_state['data_slubu'].strftime('%d.%m.%Y')}")
 
 # --- LICZNIK (wyświetlany pod tytułem) ---
@@ -151,6 +165,11 @@ def pobierz_arkusze():
     except WorksheetNotFound:
         arkusze["Harmonogram"] = None
         st.warning("⚠️ Brak zakładki 'Harmonogram' – harmonogram dnia nie będzie dostępny.")
+    try:
+        arkusze["Ustawienia"] = sh.worksheet("Ustawienia")
+    except WorksheetNotFound:
+        arkusze["Ustawienia"] = None
+        st.warning("⚠️ Brak zakładki 'Ustawienia' – data ślubu nie będzie trwale zapisywana.")
     return arkusze
 
 arkusze = pobierz_arkusze()
@@ -159,6 +178,7 @@ worksheet_obsluga = arkusze["Obsluga"]
 worksheet_zadania = arkusze["Zadania"]
 worksheet_stoly   = arkusze["Stoly"]
 worksheet_harmonogram = arkusze.get("Harmonogram")
+worksheet_ustawienia = arkusze.get("Ustawienia")
 
 # --- FUNKCJE POMOCNICZE ---
 def pobierz_dane(_worksheet):
